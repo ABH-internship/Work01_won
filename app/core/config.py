@@ -9,6 +9,7 @@ BASE_DIR = Path(__file__).resolve().parents[2]
 
 class Settings(BaseSettings):
     app_name: str = "Work01 API"
+    app_env: str = "development"
     api_prefix: str = "/api"
 
     postgres_db: str = "abh"

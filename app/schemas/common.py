@@ -9,3 +9,8 @@ class ApiResponse(BaseModel):
     code: str
     message: str
     data: IdData
+
+
+class MessageResponse(BaseModel):
+    code: str
+    message: str
