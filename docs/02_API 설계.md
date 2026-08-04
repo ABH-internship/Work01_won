@@ -1,4 +1,4 @@
-#### API 명세서
+#### API 설계
 
 **수주 - 호기 - 공정 - 실적 조회,**
 
@@ -6,7 +6,7 @@
 
 **검사 - 시험 - 이력 저장 및 조회**
 
-**각 기능을 화면과 시드 스크립트에서 사용할 수 있는 API 명세.**
+**각 기능을 화면과 시드 스크립트에서 사용할 수 있는 API 설계.**
 
 
 
@@ -14,6 +14,7 @@
 
 1. 가상 데이터 입력용 API
 * 수요처 입력
+* 견적 입력
 * 수주 입력
 * 호기 입력
 * 공정마스터 입력
@@ -21,6 +22,7 @@
 * 자재 입력
 * 재고 입력
 * 수주자재 입력
+* 견적자재 입력
 * AI검사 입력
 * 시험 입력
 * 이벤트 입력
@@ -65,16 +67,18 @@
 1. 기준/입력 API
 
    1. POST /api/customers
-   2. POST /api/orders
-   3. POST /api/units
-   4. POST /api/process-masters
-   5. POST /api/unit-processes
-   6. POST /api/materials
-   7. POST /api/inventories
-   8. POST /api/order-materials
-   9. POST /api/ai-inspections
-   10. POST /api/tests
-   11. POST /api/events
+   2. POST /api/quotes
+   3. POST /api/orders
+   4. POST /api/units
+   5. POST /api/process-masters
+   6. POST /api/unit-processes
+   7. POST /api/materials
+   8. POST /api/inventories
+   9. POST /api/order-materials
+   10. POST /api/quote-materials
+   11. POST /api/ai-inspections
+   12. POST /api/tests
+   13. POST /api/events
 2. 통합 관제 API
 
    1. GET /api/dashboard/summary
@@ -102,4 +106,3 @@
 7. 개발용 API
 
    1. POST /api/dev/reset
-
