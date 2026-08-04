@@ -80,13 +80,13 @@ def seed(base_url: str, base_date: date, reset: bool) -> None:
 
 def seed_customers(client: ApiClient) -> list[int]:
     rows = [
-        {"name": "대한전력", "grade": "A", "is_existing": True},
-        {"name": "세광산업", "grade": "A", "is_existing": True},
-        {"name": "한빛전자", "grade": "B", "is_existing": True},
-        {"name": "우진플랜트", "grade": "B", "is_existing": True},
-        {"name": "동원설비", "grade": "B", "is_existing": False},
-        {"name": "미래에너지", "grade": "C", "is_existing": False},
-        {"name": "청명테크", "grade": "C", "is_existing": False},
+        {"name": "대한전력", "grade": "A"},
+        {"name": "세광산업", "grade": "A"},
+        {"name": "한빛전자", "grade": "B"},
+        {"name": "우진플랜트", "grade": "B"},
+        {"name": "동원설비", "grade": "C"},
+        {"name": "미래에너지", "grade": "D"},
+        {"name": "청명테크", "grade": "D"},
     ]
     return [created_id(client.post("/api/customers", row)) for row in rows]
 
