@@ -85,8 +85,8 @@ def seed_customers(client: ApiClient) -> list[int]:
         {"name": "한빛전자", "grade": "B"},
         {"name": "우진플랜트", "grade": "B"},
         {"name": "동원설비", "grade": "C"},
-        {"name": "미래에너지", "grade": "D"},
-        {"name": "청명테크", "grade": "D"},
+        {"name": "미래에너지", "grade": "N"},
+        {"name": "청명테크", "grade": "N"},
     ]
     return [created_id(client.post("/api/customers", row)) for row in rows]
 

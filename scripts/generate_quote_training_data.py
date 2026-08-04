@@ -11,7 +11,7 @@ ROW_COUNT = 5000
 RANDOM_SEED = 42
 OUTPUT_PATH = Path(__file__).resolve().parents[1] / "ai" / "data" / "quote_training_data.csv"
 
-GRADES = ("A", "B", "C", "D")
+GRADES = ("A", "B", "N", "C")
 STAGES = ("초기", "협의중", "유력")
 FIELDNAMES = (
     "customer_grade",
@@ -26,7 +26,7 @@ FIELDNAMES = (
 def conversion_probability(row: dict[str, object]) -> float:
     probability = 0.35
 
-    probability += {"A": 0.25, "B": 0.08, "C": -0.06, "D": -0.18}[str(row["customer_grade"])]
+    probability += {"A": 0.25, "B": 0.08, "N": -0.01, "C": -0.08}[str(row["customer_grade"])]
     probability += {"초기": -0.18, "협의중": 0.05, "유력": 0.25}[str(row["quote_stage"])]
 
     quantity = int(row["quantity"])
@@ -57,7 +57,7 @@ def conversion_probability(row: dict[str, object]) -> float:
 
 def generate_row(rng: random.Random) -> dict[str, object]:
     row: dict[str, object] = {
-        "customer_grade": rng.choices(GRADES, weights=(0.25, 0.35, 0.25, 0.15), k=1)[0],
+        "customer_grade": rng.choices(GRADES, weights=(0.25, 0.35, 0.15, 0.25), k=1)[0],
         "quote_stage": rng.choices(STAGES, weights=(0.30, 0.45, 0.25), k=1)[0],
         "quantity": rng.randint(1, 6),
         "estimated_amount": rng.randrange(18_000_000, 121_000_000, 1_000_000),

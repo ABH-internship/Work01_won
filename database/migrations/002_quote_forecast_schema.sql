@@ -1,6 +1,6 @@
 ALTER TABLE customers
   ADD COLUMN grade VARCHAR(1) NOT NULL DEFAULT 'B',
-  ADD CONSTRAINT customers_grade_check CHECK (grade IN ('A', 'B', 'C', 'D'));
+  ADD CONSTRAINT customers_grade_check CHECK (grade IN ('A', 'B', 'C', 'N'));
 
 CREATE TABLE quotes (
   id BIGSERIAL PRIMARY KEY,
