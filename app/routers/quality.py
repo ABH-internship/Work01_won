@@ -1,6 +1,8 @@
 from datetime import date
 
 from fastapi import APIRouter, Depends, Query, status
+from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -12,7 +14,7 @@ from app.schemas.screens import (
     TestRecordItem,
     TraceResponse,
 )
-from app.services.insert import insert_id
+from app.services.insert import insert_id, integrity_error_response
 from app.services.read import fetch_all, fetch_one
 
 router = APIRouter(tags=["quality"])
@@ -41,21 +43,49 @@ def get_ai_inspection_summary(
 @router.post("/ai-inspections/mock", status_code=status.HTTP_201_CREATED, response_model=ApiResponse)
 def run_mock_ai_inspection(payload: MockAiInspectionInput, db: Session = Depends(get_db)) -> ApiResponse:
     unit = fetch_one(db, "SELECT id FROM units WHERE unit_no = :unit_no", {"unit_no": payload.unit_no})
-    return insert_id(
-        db,
-        """
-        INSERT INTO ai_inspections (unit_id, inspection_type, result, confidence, finding)
-        VALUES (:unit_id, :inspection_type, :result, :confidence, :finding)
-        RETURNING id
-        """,
-        {
-            "unit_id": unit["id"],
-            "inspection_type": payload.inspection_type,
-            "result": payload.result,
-            "confidence": payload.confidence,
-            "finding": payload.finding,
-        },
-        "Mock AI 검사 결과가 저장되었습니다.",
+    values = {
+        "unit_id": unit["id"],
+        "unit_no": payload.unit_no,
+        "inspection_type": payload.inspection_type,
+        "result": payload.result,
+        "confidence": payload.confidence,
+        "finding": payload.finding,
+    }
+
+    try:
+        result = db.execute(
+            text(
+                """
+                INSERT INTO ai_inspections (unit_id, inspection_type, result, confidence, finding)
+                VALUES (:unit_id, :inspection_type, :result, :confidence, :finding)
+                RETURNING id
+                """
+            ),
+            values,
+        ).one()
+        db.execute(
+            text(
+                """
+                INSERT INTO events (unit_id, event_type, message, severity)
+                VALUES (:unit_id, '검사', :message, :severity)
+                """
+            ),
+            {
+                "unit_id": values["unit_id"],
+                "message": f"{payload.unit_no} · AI 배선검사 {payload.result}"
+                + (f" - {payload.finding}" if payload.finding else ""),
+                "severity": "error" if payload.result == "FAIL" else "info",
+            },
+        )
+        db.commit()
+    except IntegrityError as error:
+        db.rollback()
+        raise integrity_error_response(error) from error
+
+    return ApiResponse(
+        code="CREATED",
+        message="Mock AI 검사 결과와 이벤트가 저장되었습니다.",
+        data={"id": result.id},
     )
 
 
@@ -104,8 +134,7 @@ def get_unit_tests(unit_no: str, db: Session = Depends(get_db)) -> list[dict]:
     )
 
 
-@router.get("/trace/{unit_no}", response_model=TraceResponse)
-def get_trace(unit_no: str, db: Session = Depends(get_db)) -> dict:
+def build_unit_trace(unit_no: str, db: Session) -> dict:
     base = fetch_one(
         db,
         """
@@ -148,3 +177,23 @@ def get_trace(unit_no: str, db: Session = Depends(get_db)) -> dict:
     base["tests"] = get_unit_tests(unit_no, db)
     del base["unit_id"]
     return base
+
+
+@router.get("/trace/{unit_no}", response_model=TraceResponse)
+def get_trace(unit_no: str, db: Session = Depends(get_db)) -> dict:
+    return build_unit_trace(unit_no, db)
+
+
+@router.get("/trace/orders/{order_id}", response_model=list[TraceResponse])
+def get_order_trace(order_id: int, db: Session = Depends(get_db)) -> list[dict]:
+    units = fetch_all(
+        db,
+        """
+        SELECT unit_no
+        FROM units
+        WHERE order_id = :order_id
+        ORDER BY unit_no
+        """,
+        {"order_id": order_id},
+    )
+    return [build_unit_trace(row["unit_no"], db) for row in units]

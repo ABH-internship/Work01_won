@@ -1,8 +1,12 @@
-from fastapi import APIRouter, Depends, status
+from datetime import date
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.schemas.common import ApiResponse
+from app.schemas.common import ApiResponse, QuoteApiResponse, QuoteIdData
 from app.schemas.inputs import (
     AiInspectionInput,
     CustomerInput,
@@ -18,7 +22,8 @@ from app.schemas.inputs import (
     UnitInput,
     UnitProcessInput,
 )
-from app.services.insert import insert_id, validate_order_material_inventory
+from app.services.insert import insert_id, integrity_error_response, validate_order_material_inventory
+from app.services.quote_probability import MODEL_PATH, planning_probability, predict_quote_probability
 
 router = APIRouter(tags=["input"])
 
@@ -51,23 +56,84 @@ def create_order(payload: OrderInput, db: Session = Depends(get_db)) -> ApiRespo
     )
 
 
-@router.post("/quotes", status_code=status.HTTP_201_CREATED, response_model=ApiResponse)
-def create_quote(payload: QuoteInput, db: Session = Depends(get_db)) -> ApiResponse:
-    return insert_id(
-        db,
-        """
-        INSERT INTO quotes (
-          customer_id, item_name, quantity, expected_due_date, quote_stage,
-          estimated_amount, probability, status
+@router.post("/quotes", status_code=status.HTTP_201_CREATED, response_model=QuoteApiResponse)
+def create_quote(
+    payload: QuoteInput,
+    base_date: date = Query(default_factory=date.today),
+    db: Session = Depends(get_db),
+) -> QuoteApiResponse:
+    if not MODEL_PATH.exists():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"code": "MODEL_NOT_READY", "message": "학습된 견적 확률 모델 파일이 없습니다."},
         )
-        VALUES (
-          :customer_id, :item_name, :quantity, :expected_due_date, :quote_stage,
-          :estimated_amount, :probability, :status
+
+    customer = db.execute(
+        text("SELECT grade FROM customers WHERE id = :customer_id"),
+        {"customer_id": payload.customer_id},
+    ).mappings().one_or_none()
+    if customer is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "INVALID_INPUT", "message": "존재하지 않는 수요처입니다."},
         )
-        RETURNING id
-        """,
-        payload.model_dump(),
-        "견적이 입력되었습니다.",
+
+    days_until_due = max((payload.expected_due_date - base_date).days, 0)
+    model_probability = predict_quote_probability(
+        {
+            "customer_grade": customer["grade"],
+            "quote_stage": payload.quote_stage,
+            "quantity": payload.quantity,
+            "estimated_amount": payload.estimated_amount,
+            "days_until_due": days_until_due,
+        }
+    )
+    conservative_probability = planning_probability(model_probability)
+    values = payload.model_dump()
+    values["probability"] = round(conservative_probability, 4)
+
+    try:
+        quote = db.execute(
+            text(
+                """
+                INSERT INTO quotes (
+                  customer_id, item_name, quantity, expected_due_date, quote_stage,
+                  estimated_amount, probability, status
+                )
+                VALUES (
+                  :customer_id, :item_name, :quantity, :expected_due_date, :quote_stage,
+                  :estimated_amount, :probability, :status
+                )
+                RETURNING id
+                """
+            ),
+            values,
+        ).mappings().one()
+        db.execute(
+            text(
+                """
+                INSERT INTO events (unit_id, event_type, message, severity)
+                VALUES (NULL, 'AI', :message, :severity)
+                """
+            ),
+            {
+                "message": f"{payload.item_name} 견적 전환 확률 {conservative_probability * 100:.1f}% 산정",
+                "severity": "info" if conservative_probability >= 0.5 else "warning",
+            },
+        )
+        db.commit()
+    except IntegrityError as error:
+        db.rollback()
+        raise integrity_error_response(error) from error
+
+    return QuoteApiResponse(
+        code="CREATED",
+        message="견적이 입력되었고 AI 전환 확률이 자동 반영되었습니다.",
+        data=QuoteIdData(
+            id=quote["id"],
+            model_probability=round(model_probability, 4),
+            planning_probability=round(conservative_probability, 4),
+        ),
     )
 
 
