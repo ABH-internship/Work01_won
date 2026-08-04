@@ -7,9 +7,26 @@ from pydantic import BaseModel
 
 class DashboardSummary(BaseModel):
     today_process_results: int
+    today_process_message: str
     active_units: int
+    due_soon_units: int
     on_time_rate: Decimal
+    previous_month_on_time_rate: Decimal
+    on_time_rate_delta: Decimal
     weekly_reworks: int
+    weekly_rework_summary: str
+
+
+class EquipmentUtilizationItem(BaseModel):
+    name: str
+    running_hours: Decimal
+    planned_hours: Decimal
+    utilization_rate: Decimal
+
+
+class EquipmentUtilization(BaseModel):
+    utilization_rate: Decimal
+    equipments: list[EquipmentUtilizationItem]
 
 
 class ProcessLineItem(BaseModel):
@@ -17,6 +34,8 @@ class ProcessLineItem(BaseModel):
     completed_count: int
     running_count: int
     warning_count: int
+    line_state: str
+    status_text: str
 
 
 class WeeklyOutputItem(BaseModel):
@@ -38,6 +57,7 @@ class ProgressUnitItem(BaseModel):
     item_name: str
     customer_name: str
     due_date: date
+    days_until_due: int
     progress_rate: Decimal
     current_process: str | None
     status: str
@@ -47,6 +67,7 @@ class DueRisk(BaseModel):
     unit_no: str
     due_date: date
     remaining_standard_days: Decimal
+    safety_buffer_days: Decimal
     days_until_due: int
     buffer_days: Decimal
     status: str
@@ -86,6 +107,8 @@ class MaterialRequirementItem(BaseModel):
     shortage_quantity: Decimal
     judgement: str
     suggestion: str
+    severity: str
+    message: str
 
 
 class InventoryItem(BaseModel):

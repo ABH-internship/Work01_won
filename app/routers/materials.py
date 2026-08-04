@@ -24,9 +24,16 @@ def get_material_requirements(
           GROUP BY material_id
         ),
         required AS (
-          SELECT material_id, SUM(required_quantity) AS required_quantity_2weeks
+          SELECT
+            material_id,
+            SUM(confirmed_quantity) AS confirmed_required_quantity,
+            SUM(forecast_quantity) AS forecast_required_quantity,
+            SUM(confirmed_quantity + forecast_quantity) AS required_quantity_2weeks
           FROM (
-            SELECT om.material_id, om.required_quantity
+            SELECT
+              om.material_id,
+              om.required_quantity AS confirmed_quantity,
+              0::numeric AS forecast_quantity
             FROM order_materials om
             JOIN orders o ON o.id = om.order_id
             WHERE o.status <> '완료'
@@ -34,7 +41,10 @@ def get_material_requirements(
 
             UNION ALL
 
-            SELECT qm.material_id, qm.required_quantity * q.probability AS required_quantity
+            SELECT
+              qm.material_id,
+              0::numeric AS confirmed_quantity,
+              qm.required_quantity * q.probability AS forecast_quantity
             FROM quote_materials qm
             JOIN quotes q ON q.id = qm.quote_id
             WHERE q.status = '진행중'
@@ -53,17 +63,43 @@ def get_material_requirements(
           COALESCE(r.required_quantity_2weeks, 0) AS required_quantity_2weeks,
           GREATEST(COALESCE(r.required_quantity_2weeks, 0) - COALESCE(s.current_quantity, 0), 0) AS shortage_quantity,
           CASE
-            WHEN COALESCE(s.current_quantity, 0) >= COALESCE(r.required_quantity_2weeks, 0) THEN '충분'
-            ELSE '부족'
+            WHEN COALESCE(s.current_quantity, 0) < COALESCE(r.confirmed_required_quantity, 0) THEN '결품 경보'
+            WHEN COALESCE(s.current_quantity, 0) < COALESCE(r.required_quantity_2weeks, 0) THEN '발주 권고'
+            ELSE '충분'
           END AS judgement,
           CASE
-            WHEN COALESCE(s.current_quantity, 0) >= COALESCE(r.required_quantity_2weeks, 0) THEN '-'
-            ELSE '발주 필요'
-          END AS suggestion
+            WHEN COALESCE(s.current_quantity, 0) < COALESCE(r.confirmed_required_quantity, 0)
+              THEN '리드타임 ' || m.lead_time_days || '일, 금일 발주 필요'
+            WHEN COALESCE(s.current_quantity, 0) < COALESCE(r.required_quantity_2weeks, 0)
+              THEN '다음 작업 전 발주 권고 (리드타임 ' || m.lead_time_days || '일)'
+            ELSE '-'
+          END AS suggestion,
+          CASE
+            WHEN COALESCE(s.current_quantity, 0) < COALESCE(r.confirmed_required_quantity, 0) THEN 'error'
+            WHEN COALESCE(s.current_quantity, 0) < COALESCE(r.required_quantity_2weeks, 0) THEN 'warning'
+            ELSE 'info'
+          END AS severity,
+          CASE
+            WHEN COALESCE(s.current_quantity, 0) < COALESCE(r.confirmed_required_quantity, 0)
+              THEN '결품 경보 — 리드타임 ' || m.lead_time_days || '일, 금일 발주 필요'
+            WHEN COALESCE(s.current_quantity, 0) < COALESCE(r.required_quantity_2weeks, 0)
+              THEN '발주 권고 — 다음 작업 전 ' ||
+                   ROUND(GREATEST(COALESCE(r.required_quantity_2weeks, 0) - COALESCE(s.current_quantity, 0), 0), 1) ||
+                   m.unit || ' 보충 권고'
+            ELSE '충분'
+          END AS message
         FROM materials m
         LEFT JOIN stock s ON s.material_id = m.id
         LEFT JOIN required r ON r.material_id = m.id
-        ORDER BY judgement DESC, shortage_quantity DESC, m.name
+        ORDER BY
+          CASE
+            WHEN COALESCE(s.current_quantity, 0) < COALESCE(r.confirmed_required_quantity, 0) THEN 1
+            WHEN COALESCE(s.current_quantity, 0) < COALESCE(r.required_quantity_2weeks, 0) THEN 2
+            ELSE 3
+          END,
+          shortage_quantity DESC,
+          required_quantity_2weeks DESC,
+          m.name
         """,
         {"base_date": base_date},
     )
