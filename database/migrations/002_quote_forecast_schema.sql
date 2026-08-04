@@ -1,7 +1,6 @@
 ALTER TABLE customers
   ADD COLUMN grade VARCHAR(1) NOT NULL DEFAULT 'B',
-  ADD COLUMN is_existing BOOLEAN NOT NULL DEFAULT true,
-  ADD CONSTRAINT customers_grade_check CHECK (grade IN ('A', 'B', 'C'));
+  ADD CONSTRAINT customers_grade_check CHECK (grade IN ('A', 'B', 'C', 'N'));
 
 CREATE TABLE quotes (
   id BIGSERIAL PRIMARY KEY,

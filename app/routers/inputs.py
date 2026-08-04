@@ -28,8 +28,8 @@ def create_customer(payload: CustomerInput, db: Session = Depends(get_db)) -> Ap
     return insert_id(
         db,
         """
-        INSERT INTO customers (name, grade, is_existing)
-        VALUES (:name, :grade, :is_existing)
+        INSERT INTO customers (name, grade)
+        VALUES (:name, :grade)
         RETURNING id
         """,
         payload.model_dump(),

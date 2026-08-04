@@ -8,7 +8,7 @@ OrderStatus = Literal["대기", "진행중", "완료", "지연주의", "자재�
 ProcessStatus = Literal["대기", "진행중", "완료", "지연주의"]
 QualityResult = Literal["PASS", "FAIL"]
 EventSeverity = Literal["info", "warning", "error"]
-CustomerGrade = Literal["A", "B", "C"]
+CustomerGrade = Literal["A", "B", "C", "N"]
 QuoteStage = Literal["초기", "협의중", "유력"]
 QuoteStatus = Literal["진행중", "전환", "실패", "보류"]
 
@@ -16,7 +16,6 @@ QuoteStatus = Literal["진행중", "전환", "실패", "보류"]
 class CustomerInput(BaseModel):
     name: str
     grade: CustomerGrade = "B"
-    is_existing: bool = True
 
 
 class OrderInput(BaseModel):
