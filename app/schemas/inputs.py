@@ -8,18 +8,35 @@ OrderStatus = Literal["대기", "진행중", "완료", "지연주의", "자재�
 ProcessStatus = Literal["대기", "진행중", "완료", "지연주의"]
 QualityResult = Literal["PASS", "FAIL"]
 EventSeverity = Literal["info", "warning", "error"]
+CustomerGrade = Literal["A", "B", "C"]
+QuoteStage = Literal["초기", "협의중", "유력"]
+QuoteStatus = Literal["진행중", "전환", "실패", "보류"]
 
 
 class CustomerInput(BaseModel):
     name: str
+    grade: CustomerGrade = "B"
+    is_existing: bool = True
 
 
 class OrderInput(BaseModel):
     customer_id: int
+    quote_id: int | None = None
     item_name: str
     quantity: int
     due_date: date
     status: OrderStatus
+
+
+class QuoteInput(BaseModel):
+    customer_id: int
+    item_name: str
+    quantity: int
+    expected_due_date: date
+    quote_stage: QuoteStage
+    estimated_amount: Decimal
+    probability: Decimal
+    status: QuoteStatus = "진행중"
 
 
 class UnitInput(BaseModel):
@@ -63,8 +80,13 @@ class OrderMaterialInput(BaseModel):
     order_id: int
     material_id: int
     required_quantity: Decimal
-    lot_no: str | None = None
     inventory_id: int | None = None
+
+
+class QuoteMaterialInput(BaseModel):
+    quote_id: int
+    material_id: int
+    required_quantity: Decimal
 
 
 class AiInspectionInput(BaseModel):

@@ -46,7 +46,7 @@ def validate_order_material_inventory(db: Session, values: dict[str, Any]) -> No
         return
 
     row = db.execute(
-        text("SELECT material_id, lot_no FROM inventories WHERE id = :inventory_id"),
+        text("SELECT material_id FROM inventories WHERE id = :inventory_id"),
         {"inventory_id": inventory_id},
     ).mappings().one_or_none()
 
@@ -59,15 +59,5 @@ def validate_order_material_inventory(db: Session, values: dict[str, Any]) -> No
     if row["material_id"] != values["material_id"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"code": "INVALID_INPUT", "message": "자재와 재고 LOT의 자재가 일치하지 않습니다."},
-        )
-
-    if values.get("lot_no") is None:
-        values["lot_no"] = row["lot_no"]
-        return
-
-    if row["lot_no"] != values["lot_no"]:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"code": "INVALID_INPUT", "message": "LOT 번호와 재고 LOT가 일치하지 않습니다."},
+            detail={"code": "INVALID_INPUT", "message": "선택한 재고의 자재가 요청 자재와 일치하지 않습니다."},
         )

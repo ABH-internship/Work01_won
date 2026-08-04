@@ -25,6 +25,7 @@ def reset_database(db: Session = Depends(get_db)) -> MessageResponse:
                   events,
                   tests,
                   ai_inspections,
+                  quote_materials,
                   order_materials,
                   inventories,
                   unit_processes,
@@ -32,6 +33,7 @@ def reset_database(db: Session = Depends(get_db)) -> MessageResponse:
                   process_masters,
                   materials,
                   orders,
+                  quotes,
                   customers
                 RESTART IDENTITY CASCADE
                 """

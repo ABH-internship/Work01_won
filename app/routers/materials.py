@@ -24,12 +24,26 @@ def get_material_requirements(
           GROUP BY material_id
         ),
         required AS (
-          SELECT om.material_id, COALESCE(SUM(om.required_quantity), 0) AS required_quantity_2weeks
-          FROM order_materials om
-          JOIN orders o ON o.id = om.order_id
-          WHERE o.status <> '완료'
-            AND o.due_date BETWEEN CAST(:base_date AS date) AND CAST(:base_date AS date) + INTERVAL '14 days'
-          GROUP BY om.material_id
+          SELECT material_id, SUM(required_quantity) AS required_quantity_2weeks
+          FROM (
+            SELECT om.material_id, om.required_quantity
+            FROM order_materials om
+            JOIN orders o ON o.id = om.order_id
+            WHERE o.status <> '완료'
+              AND o.due_date BETWEEN CAST(:base_date AS date) AND CAST(:base_date AS date) + INTERVAL '14 days'
+
+            UNION ALL
+
+            SELECT qm.material_id, qm.required_quantity * q.probability AS required_quantity
+            FROM quote_materials qm
+            JOIN quotes q ON q.id = qm.quote_id
+            WHERE q.status = '진행중'
+              AND q.expected_due_date BETWEEN CAST(:base_date AS date) AND CAST(:base_date AS date) + INTERVAL '14 days'
+              AND NOT EXISTS (
+                SELECT 1 FROM orders o WHERE o.quote_id = q.id
+              )
+          ) forecast
+          GROUP BY material_id
         )
         SELECT
           m.id AS material_id,

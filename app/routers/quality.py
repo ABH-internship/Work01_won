@@ -134,10 +134,11 @@ def get_trace(unit_no: str, db: Session = Depends(get_db)) -> dict:
     base["materials"] = fetch_all(
         db,
         """
-        SELECT m.name AS material_name, om.required_quantity, m.unit, om.lot_no
+        SELECT m.name AS material_name, om.required_quantity, m.unit, i.lot_no
         FROM order_materials om
         JOIN units u ON u.order_id = om.order_id
         JOIN materials m ON m.id = om.material_id
+        LEFT JOIN inventories i ON i.id = om.inventory_id
         WHERE u.unit_no = :unit_no
         ORDER BY m.name
         """,

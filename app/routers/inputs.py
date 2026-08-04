@@ -12,6 +12,8 @@ from app.schemas.inputs import (
     OrderInput,
     OrderMaterialInput,
     ProcessMasterInput,
+    QuoteInput,
+    QuoteMaterialInput,
     TestInput,
     UnitInput,
     UnitProcessInput,
@@ -25,7 +27,11 @@ router = APIRouter(tags=["input"])
 def create_customer(payload: CustomerInput, db: Session = Depends(get_db)) -> ApiResponse:
     return insert_id(
         db,
-        "INSERT INTO customers (name) VALUES (:name) RETURNING id",
+        """
+        INSERT INTO customers (name, grade, is_existing)
+        VALUES (:name, :grade, :is_existing)
+        RETURNING id
+        """,
         payload.model_dump(),
         "수요처가 입력되었습니다.",
     )
@@ -36,12 +42,32 @@ def create_order(payload: OrderInput, db: Session = Depends(get_db)) -> ApiRespo
     return insert_id(
         db,
         """
-        INSERT INTO orders (customer_id, item_name, quantity, due_date, status)
-        VALUES (:customer_id, :item_name, :quantity, :due_date, :status)
+        INSERT INTO orders (customer_id, quote_id, item_name, quantity, due_date, status)
+        VALUES (:customer_id, :quote_id, :item_name, :quantity, :due_date, :status)
         RETURNING id
         """,
         payload.model_dump(),
         "수주가 입력되었습니다.",
+    )
+
+
+@router.post("/quotes", status_code=status.HTTP_201_CREATED, response_model=ApiResponse)
+def create_quote(payload: QuoteInput, db: Session = Depends(get_db)) -> ApiResponse:
+    return insert_id(
+        db,
+        """
+        INSERT INTO quotes (
+          customer_id, item_name, quantity, expected_due_date, quote_stage,
+          estimated_amount, probability, status
+        )
+        VALUES (
+          :customer_id, :item_name, :quantity, :expected_due_date, :quote_stage,
+          :estimated_amount, :probability, :status
+        )
+        RETURNING id
+        """,
+        payload.model_dump(),
+        "견적이 입력되었습니다.",
     )
 
 
@@ -131,16 +157,26 @@ def create_order_material(payload: OrderMaterialInput, db: Session = Depends(get
     return insert_id(
         db,
         """
-        INSERT INTO order_materials (
-          order_id, material_id, required_quantity, lot_no, inventory_id
-        )
-        VALUES (
-          :order_id, :material_id, :required_quantity, :lot_no, :inventory_id
-        )
+        INSERT INTO order_materials (order_id, material_id, required_quantity, inventory_id)
+        VALUES (:order_id, :material_id, :required_quantity, :inventory_id)
         RETURNING id
         """,
         values,
         "수주자재가 입력되었습니다.",
+    )
+
+
+@router.post("/quote-materials", status_code=status.HTTP_201_CREATED, response_model=ApiResponse)
+def create_quote_material(payload: QuoteMaterialInput, db: Session = Depends(get_db)) -> ApiResponse:
+    return insert_id(
+        db,
+        """
+        INSERT INTO quote_materials (quote_id, material_id, required_quantity)
+        VALUES (:quote_id, :material_id, :required_quantity)
+        RETURNING id
+        """,
+        payload.model_dump(),
+        "견적자재가 입력되었습니다.",
     )
 
 
