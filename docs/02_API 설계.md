@@ -1,108 +1,141 @@
-#### API 설계
+# API 설계
 
-**수주 - 호기 - 공정 - 실적 조회,**
+## 1. 설계 기준
 
-**자재 - BOM - 재고 계산,**
+API는 입력 API와 화면 조회 API를 분리했다.
 
-**검사 - 시험 - 이력 저장 및 조회**
+- 입력 API는 seed 데이터 생성과 개발 중 수동 입력을 위해 사용한다.
+- 화면 조회 API는 `index.html`에서 필요한 형태로 데이터를 가공해 반환한다.
+- AI API는 견적 전환 확률 예측과 AI 배선 검사 mock을 담당한다.
+- 개발용 reset API는 로컬 개발 환경에서만 seed 데이터를 다시 넣기 위해 사용한다.
 
-**각 기능을 화면과 시드 스크립트에서 사용할 수 있는 API 설계.**
+공통 응답은 다음 형태를 기준으로 한다.
 
+```json
+{
+  "code": "OK",
+  "message": "처리 결과 메시지",
+  "data": {}
+}
+```
 
+입력 실패는 `INVALID_INPUT`, 모델 파일이 없을 때는 `MODEL_NOT_READY`처럼 식별 가능한 코드를 사용한다.
 
-**# 필요 API**
+## 2. 기본 API
 
-1. 가상 데이터 입력용 API
-* 수요처 입력
-* 견적 입력
-* 수주 입력
-* 호기 입력
-* 공정마스터 입력
-* 호기공정 입력
-* 자재 입력
-* 재고 입력
-* 수주자재 입력
-* 견적자재 입력
-* AI검사 입력
-* 시험 입력
-* 이벤트 입력
+| Method | URL | 설명 |
+| --- | --- | --- |
+| GET | `/api/health` | 서버 상태 확인 |
+| GET | `/api/health/db` | DB 연결 상태 확인 |
 
+## 3. 입력 API
 
+seed 스크립트와 개발 중 데이터 입력을 위한 API이다.  
+각 API는 DB에 데이터를 저장하고 생성된 ID를 반환한다.
 
-2. 화면 조회용 API
+| Method | URL | 설명 |
+| --- | --- | --- |
+| POST | `/api/customers` | 고객 입력 |
+| POST | `/api/quotes` | 견적 입력 및 AI 전환 확률 저장 |
+| POST | `/api/orders` | 확정 수주 입력 |
+| POST | `/api/units` | 호기 입력 |
+| POST | `/api/process-masters` | 공정 마스터 입력 |
+| POST | `/api/unit-processes` | 호기별 공정 상태 입력 |
+| POST | `/api/materials` | 자재 마스터 입력 |
+| POST | `/api/inventories` | LOT별 재고 입력 |
+| POST | `/api/order-materials` | 확정 수주 필요 자재 입력 |
+| POST | `/api/quote-materials` | 진행 견적 예상 자재 입력 |
+| POST | `/api/ai-inspections` | AI 검사 결과 입력 |
+| POST | `/api/tests` | 시험 성적 입력 |
+| POST | `/api/events` | 이벤트 입력 |
 
-* 통합 관제 KPI 조회
-* 공정 라인 현황 조회
-* 주간 생산실적 조회
-* 최근 이벤트 조회
-* 호기별 진척 조회
-* 납기 역산 경보 조회
-* AI검사 결과 조회
-* 자재 부족/충분 판정 조회
-* 시험성적 조회
-* 호기 이력 추적 조회
+`POST /api/quotes`는 단순 저장 API가 아니라, 견적 조건을 기반으로 AI 모델을 호출한 뒤 전환 확률을 함께 저장한다.
 
+## 4. 통합 관제 API
 
+| Method | URL | 설명 |
+| --- | --- | --- |
+| GET | `/api/dashboard/summary` | 금일 실적, 진행 호기, 납기 임박, 월간 납기 준수율, 재작업 요약 조회 |
+| GET | `/api/dashboard/equipment-utilization` | 주요 설비 가동률 조회 |
+| GET | `/api/dashboard/process-line` | 공정 라인별 완료, 진행, 경고 현황 조회 |
+| GET | `/api/dashboard/weekly-output` | 월요일부터 일요일까지 주간 생산 실적 조회 |
+| GET | `/api/events/recent` | 최근 이벤트 조회 |
 
-3. 개발용 API
+주요 설비 가동률은 별도 설비 테이블을 두지 않고, 과제 화면의 기준에 맞춰 절곡기/CNC 설비와 연결되는 `판금 절곡` 공정 상태를 기준으로 계산한다.
 
-* 가상 데이터 재생성을 위한 초기화
+## 5. 수주 공정 진척 API
 
+| Method | URL | 설명 |
+| --- | --- | --- |
+| GET | `/api/progress/units` | 호기별 공정 진척, 현재 공정, 납기 위험 상태 조회 |
+| GET | `/api/progress/due-risk/{unit_no}` | 특정 호기의 납기 위험 계산 결과 조회 |
 
+납기 위험은 남은 공정의 표준 소요일과 납기까지 남은 기간을 비교해 계산한다.  
+화면의 D-day 표시는 실제 납기까지 남은 날짜를 의미하고, 위험 판단은 내부 계산값을 사용한다.
 
-**# API 목록**
+## 6. 자재 및 재고 API
 
-1. 기준/입력 API: 가상 데이터 입력 스크립트에서 사용
-2. 통합 관제 API: KPI, 라인 현황, 주간 실적, 이벤트 조회
-3. 수주·공정 API: 호기별 진척과 납기 역산 경보 조회
-4. AI검사 API: Mock AI 검사 실행 및 결과 조회
-5. 자재·재고 API: 수주 BOM 기준 자재 소요와 재고 판정 조회
-6. 시험·이력 API: 시험성적과 호기 기준 전체 이력 조회
-7. 개발용 API: 로컬 개발 데이터 초기화
+| Method | URL | 설명 |
+| --- | --- | --- |
+| GET | `/api/materials/requirements` | 주요 자재별 현재 재고, 2주 내 예상 소요량, 부족 수량, 발주 메시지 조회 |
+| GET | `/api/materials/inventories` | LOT별 재고 목록 조회 |
 
+2주 내 예상 소요량은 확정 수주 필요량과 진행 견적 예상 필요량을 함께 사용한다.  
+진행 견적은 AI 전환 확률을 가중치로 반영한다.
 
+## 7. 품질 및 이력 API
 
-**# 명세**
+| Method | URL | 설명 |
+| --- | --- | --- |
+| GET | `/api/ai-inspections/summary` | 금일 AI 검사 건수, 검출 건수, 평균 신뢰도, 평균 판독 시간 조회 |
+| POST | `/api/ai-inspections/mock` | AI 배선 검사 mock 실행 및 결과 저장 |
+| GET | `/api/ai-inspections/units/{unit_no}` | 호기별 AI 검사 이력 조회 |
+| GET | `/api/tests` | 시험 성적 목록 조회 |
+| GET | `/api/tests/units/{unit_no}` | 호기별 시험 성적 조회 |
+| GET | `/api/trace/{unit_no}` | 호기별 전체 이력 추적 조회 |
+| GET | `/api/trace/orders/{order_id}` | 수주에 포함된 호기별 이력 조회 |
 
-1. 기준/입력 API
+이력 추적은 별도 이벤트 테이블만 보는 방식이 아니라, 호기 기준으로 공정, 자재, AI 검사, 시험 성적, 이벤트를 모아 타임라인 형태로 반환한다.
 
-   1. POST /api/customers
-   2. POST /api/quotes
-   3. POST /api/orders
-   4. POST /api/units
-   5. POST /api/process-masters
-   6. POST /api/unit-processes
-   7. POST /api/materials
-   8. POST /api/inventories
-   9. POST /api/order-materials
-   10. POST /api/quote-materials
-   11. POST /api/ai-inspections
-   12. POST /api/tests
-   13. POST /api/events
-2. 통합 관제 API
+## 8. AI API
 
-   1. GET /api/dashboard/summary
-   2. GET /api/dashboard/process-line
-   3. GET /api/dashboard/weekly-output
-   4. GET /api/events/recent
-3. 수주·공정 API
+| Method | URL | 설명 |
+| --- | --- | --- |
+| POST | `/api/ai/quote-probability` | 견적 조건 기반 전환 확률 예측 |
 
-   1. GET /api/progress/units
-   2. GET /api/progress/due-risk/{unit_no}
-4. AI검사 API
+입력값:
 
-   1. POST /api/ai-inspections/mock
-   2. GET /api/ai-inspections/summary
-   3. GET /api/ai-inspections/units/{unit_no}
-5. 자재·재고 API
+| 필드 | 설명 |
+| --- | --- |
+| `customer_grade` | 고객 등급 |
+| `quote_stage` | 견적 단계 |
+| `quantity` | 견적 수량 |
+| `estimated_amount` | 견적 금액 |
+| `days_until_due` | 예상 납기까지 남은 일수 |
 
-   1. GET /api/materials/requirements
-   2. GET /api/materials/inventories
-6. 시험·이력 API
+응답값:
 
-   1. GET /api/tests
-   2. GET /api/tests/units/{unit_no}
-   3. GET /api/trace/{unit_no}
-7. 개발용 API
+| 필드 | 설명 |
+| --- | --- |
+| `model_probability` | 모델이 예측한 전환 확률 |
+| `planning_probability` | 자재 계획에 사용할 보수 계산 확률 |
 
-   1. POST /api/dev/reset
+자재 계획은 결품을 피하는 것이 중요하므로 모델 확률을 그대로 쓰지 않고, 최소값과 보수 계수를 적용한 `planning_probability`를 사용한다.
+
+## 9. 개발용 API
+
+| Method | URL | 설명 |
+| --- | --- | --- |
+| POST | `/api/dev/reset` | 개발 DB 데이터 초기화 |
+
+이 API는 seed 데이터를 반복 입력하기 위한 개발용 기능이다.  
+운영 환경에서는 인증과 접근 제한이 필요하다.
+
+## 10. OpenAPI
+
+FastAPI는 API 구조를 자동으로 문서화한다.
+
+- Swagger UI: `/docs`
+- OpenAPI JSON: `/openapi.json`
+
+프론트엔드 연결이나 보고서 작성 시 실제 API 목록과 응답 구조를 확인하는 기준으로 사용할 수 있다.
