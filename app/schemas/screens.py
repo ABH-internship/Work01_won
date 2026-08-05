@@ -146,6 +146,14 @@ class TraceMaterialItem(BaseModel):
     lot_no: str | None
 
 
+class TraceTimelineItem(BaseModel):
+    occurred_at: datetime
+    event_type: str
+    title: str
+    message: str
+    severity: str
+
+
 class TraceResponse(BaseModel):
     unit_no: str
     item_name: str
@@ -155,3 +163,4 @@ class TraceResponse(BaseModel):
     materials: list[TraceMaterialItem]
     inspections: list[AiInspectionItem]
     tests: list[TestRecordItem]
+    timeline: list[TraceTimelineItem]

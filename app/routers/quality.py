@@ -175,6 +175,140 @@ def build_unit_trace(unit_no: str, db: Session) -> dict:
     )
     base["inspections"] = get_unit_ai_inspections(unit_no, db)
     base["tests"] = get_unit_tests(unit_no, db)
+    base["timeline"] = fetch_all(
+        db,
+        """
+        SELECT occurred_at, event_type, title, message, severity
+        FROM (
+          SELECT
+            COALESCE(
+              (
+                SELECT MIN(up.started_at) - INTERVAL '2 days'
+                FROM unit_processes up
+                JOIN units ux ON ux.id = up.unit_id
+                WHERE ux.unit_no = :unit_no
+              ),
+              o.created_at
+            ) AS occurred_at,
+            '수주' AS event_type,
+            '수주 등록' AS title,
+            o.item_name || ' ' || o.quantity || '면 · 납기 ' || o.due_date AS message,
+            'info' AS severity
+          FROM units u
+          JOIN orders o ON o.id = u.order_id
+          WHERE u.unit_no = :unit_no
+
+          UNION ALL
+
+          SELECT
+            COALESCE(
+              (
+                SELECT MIN(up.started_at) - INTERVAL '1 day'
+                FROM unit_processes up
+                JOIN units ux ON ux.id = up.unit_id
+                WHERE ux.unit_no = :unit_no
+              ),
+              u.created_at
+            ) AS occurred_at,
+            '호기' AS event_type,
+            '호기 등록' AS title,
+            u.unit_no || COALESCE(' · ' || u.item_detail, '') AS message,
+            'info' AS severity
+          FROM units u
+          WHERE u.unit_no = :unit_no
+
+          UNION ALL
+
+          SELECT
+            COALESCE(
+              (
+                SELECT MIN(up.started_at) - INTERVAL '12 hours'
+                FROM unit_processes up
+                JOIN units ux ON ux.id = up.unit_id
+                WHERE ux.unit_no = :unit_no
+              ),
+              o.created_at
+            ) AS occurred_at,
+            '자재' AS event_type,
+            '자재 LOT 배정' AS title,
+            m.name || ' ' || om.required_quantity || m.unit || COALESCE(' · LOT ' || i.lot_no, '') AS message,
+            'info' AS severity
+          FROM order_materials om
+          JOIN units u ON u.order_id = om.order_id
+          JOIN orders o ON o.id = u.order_id
+          JOIN materials m ON m.id = om.material_id
+          LEFT JOIN inventories i ON i.id = om.inventory_id
+          WHERE u.unit_no = :unit_no
+
+          UNION ALL
+
+          SELECT
+            up.started_at AS occurred_at,
+            '공정' AS event_type,
+            pm.name || ' 시작' AS title,
+            u.unit_no || ' · ' || pm.name || ' 공정 시작' AS message,
+            CASE WHEN up.status = '지연주의' THEN 'warning' ELSE 'info' END AS severity
+          FROM unit_processes up
+          JOIN units u ON u.id = up.unit_id
+          JOIN process_masters pm ON pm.id = up.process_master_id
+          WHERE u.unit_no = :unit_no
+            AND up.started_at IS NOT NULL
+
+          UNION ALL
+
+          SELECT
+            up.completed_at AS occurred_at,
+            '공정' AS event_type,
+            pm.name || ' 완료' AS title,
+            pm.name || ' 완료' || COALESCE(' · 실적 ' || up.result_quantity, '') AS message,
+            CASE WHEN up.is_rework THEN 'warning' ELSE 'info' END AS severity
+          FROM unit_processes up
+          JOIN units u ON u.id = up.unit_id
+          JOIN process_masters pm ON pm.id = up.process_master_id
+          WHERE u.unit_no = :unit_no
+            AND up.completed_at IS NOT NULL
+
+          UNION ALL
+
+          SELECT
+            ai.inspected_at AS occurred_at,
+            '검사' AS event_type,
+            'AI ' || ai.inspection_type || ' ' || ai.result AS title,
+            COALESCE(ai.finding, '특이사항 없음') AS message,
+            CASE WHEN ai.result = 'FAIL' THEN 'error' ELSE 'info' END AS severity
+          FROM ai_inspections ai
+          JOIN units u ON u.id = ai.unit_id
+          WHERE u.unit_no = :unit_no
+
+          UNION ALL
+
+          SELECT
+            t.tested_at AS occurred_at,
+            '시험' AS event_type,
+            t.test_item || ' ' || t.result AS title,
+            t.measured_value || ' · 기준 ' || t.criteria || ' · 시험자 ' || t.tester AS message,
+            CASE WHEN t.result = 'FAIL' THEN 'error' ELSE 'info' END AS severity
+          FROM tests t
+          JOIN units u ON u.id = t.unit_id
+          WHERE u.unit_no = :unit_no
+
+          UNION ALL
+
+          SELECT
+            e.occurred_at AS occurred_at,
+            e.event_type,
+            e.event_type AS title,
+            e.message,
+            e.severity
+          FROM events e
+          JOIN units u ON u.id = e.unit_id
+          WHERE u.unit_no = :unit_no
+        ) timeline
+        WHERE occurred_at IS NOT NULL
+        ORDER BY occurred_at, event_type, title
+        """,
+        params,
+    )
     del base["unit_id"]
     return base
 

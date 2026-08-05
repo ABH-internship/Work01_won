@@ -133,6 +133,28 @@ tr:last-child td{border-bottom:none}
 .trace span{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:7px 11px}
 .trace em{color:var(--dim);font-style:normal;font-family:'IBM Plex Mono',monospace}
 .trace .hl{border-color:rgba(233,181,11,.55)}
+.trace-title{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.trace-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.trace-tools select{background:#0E1216;border:1px solid var(--line);border-radius:4px;color:var(--ink);padding:7px 10px;min-width:220px;font-family:'IBM Plex Mono',monospace;font-size:12px}
+.trace-tools .btn{padding:7px 12px;font-size:12px}
+.trace-head{font-size:12.5px;color:var(--mut);margin-bottom:10px}
+.timeline{list-style:none;border-top:1px solid rgba(42,50,60,.7)}
+.timeline li{display:grid;grid-template-columns:118px 62px 132px 1fr;gap:8px;align-items:center;padding:7px 2px;border-bottom:1px solid rgba(42,50,60,.6);font-size:12.5px}
+.timeline .tm{font-family:'IBM Plex Mono',monospace;color:var(--dim);white-space:nowrap}
+.timeline .tp{font-family:'IBM Plex Mono',monospace;font-size:10.5px;border-radius:3px;padding:2px 6px;text-align:center;height:22px}
+.timeline .tp.info{background:rgba(76,141,216,.14);color:var(--blue)}
+.timeline .tp.warning{background:rgba(233,181,11,.14);color:var(--yellow)}
+.timeline .tp.error{background:rgba(224,91,65,.14);color:var(--red)}
+.timeline .tp.order{background:rgba(76,141,216,.14);color:var(--blue)}
+.timeline .tp.unit{background:rgba(154,164,174,.16);color:#BAC3CC}
+.timeline .tp.material{background:rgba(233,181,11,.14);color:var(--yellow)}
+.timeline .tp.process{background:rgba(63,191,127,.14);color:var(--green)}
+.timeline .tp.inspection{background:rgba(224,91,65,.14);color:var(--red)}
+.timeline .tp.test{background:rgba(141,107,255,.16);color:#B9A7FF}
+.timeline .tp.event{background:rgba(76,141,216,.14);color:var(--blue)}
+.timeline b{font-size:12.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.timeline p{color:var(--ink);font-size:12.5px;font-weight:400;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:720px){.timeline li{grid-template-columns:92px 58px 1fr}.timeline p{grid-column:1 / -1}.timeline .tp{width:max-content}}
 
 /* ── 효과 탭 ── */
 .ba{display:grid;grid-template-columns:1fr 46px 1fr;gap:10px;align-items:stretch;margin-bottom:10px}
@@ -329,18 +351,15 @@ footer{border-top:1px solid var(--line);color:var(--dim);font-size:11.5px;paddin
     </table>
   </div>
   <div class="panelbox">
-    <h2>이력 추적 (Traceability) <span class="sub">발주처 문의·클레임 시, 호기 번호 하나로 전 이력 3초 소환</span></h2>
-    <div class="trace" id="trace-body">
-      <span class="hl mono">DN-2607-011</span><em>→</em>
-      <span>수주 06-02 · ○○산단</span><em>→</em>
-      <span>설계 Rev.C 승인</span><em>→</em>
-      <span>MCCB LOT #A2417</span><em>→</em>
-      <span>배선 작업 06-28~07-02</span><em>→</em>
-      <span>AI검사 PASS (0건)</span><em>→</em>
-      <span>내전압 PASS 07-16</span><em>→</em>
-      <span>성적서 PDF 자동발행</span>
+    <div class="trace-title">
+      <h2>이력 추적 (Traceability) <span class="sub">발주처 문의·클레임 시, 호기 번호 하나로 전 이력 3초 소환</span></h2>
+      <div class="trace-tools">
+        <select id="trace-unit-select" aria-label="호기 선택"></select>
+        <button class="btn ghost" id="trace-load" type="button">조회</button>
+      </div>
     </div>
-    <p style="margin-top:10px;font-size:12.5px;color:var(--mut)">호기 명판에 QR 부착 → 현장에서 스캔하면 준공 후에도 동일 이력 열람. 유지보수·개보수 수주로 이어지는 접점이 됩니다.</p>
+    <div class="trace-head" id="trace-head">호기를 선택하면 수주, 자재 LOT, 공정, 검사, 시험, 이벤트 이력이 시간순으로 표시됩니다.</div>
+    <ul class="timeline" id="trace-timeline"></ul>
   </div>
 </section>
 
@@ -416,6 +435,15 @@ footer{border-top:1px solid var(--line);color:var(--dim);font-size:11.5px;paddin
     return row.status;
   }
 
+  function fmtDateTime(value){
+    if(!value) return '-';
+    var date=new Date(value);
+    return String(date.getMonth()+1).padStart(2,'0')+'-'+
+      String(date.getDate()).padStart(2,'0')+' '+
+      String(date.getHours()).padStart(2,'0')+':'+
+      String(date.getMinutes()).padStart(2,'0');
+  }
+
   function materialChipClass(severity){
     if(severity==='error') return 'st-fail';
     if(severity==='warning') return 'st-warn';
@@ -432,6 +460,16 @@ footer{border-top:1px solid var(--line);color:var(--dim);font-size:11.5px;paddin
     if(severity==='error') return 'err';
     if(severity==='warning') return 'warn';
     return 'ok';
+  }
+
+  function timelineTypeClass(type){
+    if(type==='수주') return 'order';
+    if(type==='호기') return 'unit';
+    if(type==='자재') return 'material';
+    if(type==='공정') return 'process';
+    if(type==='검사') return 'inspection';
+    if(type==='시험') return 'test';
+    return 'event';
   }
 
   function setTrend(id,value,suffix){
@@ -549,20 +587,54 @@ footer{border-top:1px solid var(--line);color:var(--dim);font-size:11.5px;paddin
       body.innerHTML='';
       rows.forEach(function(row){
         var chip=row.result==='PASS'?'st-run':'st-fail';
-        var tested=row.tested_at ? new Date(row.tested_at).toLocaleString('ko-KR',{hour12:false}) : '-';
+        var tested=fmtDateTime(row.tested_at);
         body.innerHTML+='<tr><td class="mono">'+row.unit_no+'</td><td>'+row.test_item+'</td><td class="mono">'+row.measured_value+'</td><td class="mono">'+row.criteria+'</td><td><span class="st-chip '+chip+'">'+row.result+'</span></td><td class="mono">'+row.tester+' · '+tested+'</td></tr>';
       });
     }).catch(console.warn);
 
-    api('/api/trace/DN-2608-001').then(function(row){
-      var trace=document.getElementById('trace-body');
-      var materials=row.materials.map(function(item){return item.material_name+(item.lot_no?' LOT '+item.lot_no:'');}).slice(0,2).join(' · ');
-      var processes=row.processes.filter(function(item){return item.status==='완료';}).map(function(item){return item.process_name;}).slice(-2).join(' · ');
-      var inspection=row.inspections[0] ? 'AI검사 '+row.inspections[0].result : 'AI검사 -';
-      var test=row.tests[0] ? row.tests[0].test_item+' '+row.tests[0].result : '시험 -';
-      trace.innerHTML='<span class="hl mono">'+row.unit_no+'</span><em>→</em><span>'+row.customer_name+'</span><em>→</em><span>'+row.item_name+'</span><em>→</em><span>'+(materials||'자재 LOT -')+'</span><em>→</em><span>'+(processes||'공정 -')+'</span><em>→</em><span>'+inspection+'</span><em>→</em><span>'+test+'</span>';
+    loadTraceOptions();
+  }
+
+  function loadTraceOptions(){
+    api('/api/progress/units').then(function(rows){
+      var select=document.getElementById('trace-unit-select');
+      if(!select || select.dataset.loaded==='1') return;
+      select.innerHTML='';
+      rows.forEach(function(row){
+        select.innerHTML+='<option value="'+esc(row.unit_no)+'">'+esc(row.unit_no)+'</option>';
+      });
+      select.dataset.loaded='1';
+      if(rows[0]){
+        select.value=rows[0].unit_no;
+        loadTrace(rows[0].unit_no);
+      }
     }).catch(console.warn);
   }
+
+  function loadTrace(unitNo){
+    if(!unitNo) return;
+    api('/api/trace/'+encodeURIComponent(unitNo)).then(function(row){
+      var head=document.getElementById('trace-head');
+      var timeline=document.getElementById('trace-timeline');
+      head.innerHTML='<span class="mono">'+esc(row.unit_no)+'</span> · '+esc(row.item_name)+' · '+esc(row.customer_name)+' · 납기 <span class="mono">'+fmtDate(row.due_date)+'</span>';
+      timeline.innerHTML='';
+      if(!row.timeline || !row.timeline.length){
+        timeline.innerHTML='<li><span class="tm">-</span><span class="tp info">정보</span><b>이력 없음</b><p>표시할 이력이 없습니다.</p></li>';
+        return;
+      }
+      row.timeline.forEach(function(item){
+        var typeClass=timelineTypeClass(item.event_type);
+        timeline.innerHTML+='<li><span class="tm">'+fmtDateTime(item.occurred_at)+'</span><span class="tp '+typeClass+'">'+esc(item.event_type)+'</span><b>'+esc(item.title)+'</b><p>'+esc(item.message)+'</p></li>';
+      });
+    }).catch(console.warn);
+  }
+
+  document.getElementById('trace-load').addEventListener('click',function(){
+    loadTrace(document.getElementById('trace-unit-select').value);
+  });
+  document.getElementById('trace-unit-select').addEventListener('change',function(){
+    loadTrace(this.value);
+  });
 
   loadDashboard();
   loadProgress();
