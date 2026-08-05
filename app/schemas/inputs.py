@@ -34,7 +34,6 @@ class QuoteInput(BaseModel):
     expected_due_date: date
     quote_stage: QuoteStage
     estimated_amount: Decimal
-    probability: Decimal
     status: QuoteStatus = "진행중"
 
 

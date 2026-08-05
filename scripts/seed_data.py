@@ -9,7 +9,7 @@ from urllib.request import Request, urlopen
 
 
 DEFAULT_BASE_URL = "http://127.0.0.1:8000"
-DEFAULT_BASE_DATE = date(2026, 8, 4)
+DEFAULT_BASE_DATE = date(2026, 8, 5)
 
 
 class ApiClient:
@@ -33,7 +33,7 @@ class ApiClient:
                 body = response.read().decode("utf-8")
         except HTTPError as error:
             detail = error.read().decode("utf-8", errors="replace")
-            raise RuntimeError(f"{method} {path} failed: {error.code} {detail}") from error
+            raise RuntimeError(f"{method} {path} failed: {error.code} {detail} payload={payload}") from error
         except URLError as error:
             raise RuntimeError(f"API server is not reachable: {self.base_url}") from error
 
@@ -73,8 +73,8 @@ def seed(base_url: str, base_date: date, reset: bool) -> None:
     seed_events(client, units, base_date)
 
     print("Seed data created.")
-    print("customers=7 quotes=10 orders=12 units=22 process_masters=6 unit_processes=132")
-    print("materials=12 inventories=24 order_materials=55 quote_materials=40")
+    print("customers=7 quotes=10 orders=16 units=28 process_masters=8 unit_processes=224")
+    print("materials=12 inventories=24 order_materials=71 quote_materials=40")
     print("ai_inspections=16 tests=36 events=20")
 
 
@@ -93,21 +93,21 @@ def seed_customers(client: ApiClient) -> list[int]:
 
 def seed_quotes(client: ApiClient, customers: list[int], base_date: date) -> list[int]:
     rows = [
-        (0, "저압 배전반", 2, 9, "유력", 84000000, "0.9000", "전환"),
-        (1, "MCC 제어반", 1, 12, "유력", 47000000, "0.8500", "전환"),
-        (2, "분전반", 3, 16, "협의중", 66000000, "0.6200", "전환"),
-        (3, "고압 배전반", 1, 21, "초기", 92000000, "0.4000", "진행중"),
-        (4, "자동제어반", 2, 10, "협의중", 51000000, "0.5800", "전환"),
-        (5, "PLC 판넬", 2, 13, "협의중", 38000000, "0.5200", "진행중"),
-        (6, "인버터 판넬", 1, 7, "유력", 29000000, "0.7800", "진행중"),
-        (0, "계장 제어반", 2, 18, "초기", 44000000, "0.3500", "진행중"),
-        (2, "모터 제어반", 1, 25, "협의중", 36000000, "0.4600", "보류"),
-        (4, "현장 조작반", 2, 11, "초기", 24000000, "0.2500", "실패"),
+        (0, "저압 배전반", 2, 9, "유력", 84000000, "전환"),
+        (1, "MCC 제어반", 1, 12, "유력", 47000000, "전환"),
+        (2, "분전반", 3, 16, "협의중", 66000000, "전환"),
+        (3, "고압 배전반", 1, 21, "초기", 92000000, "진행중"),
+        (4, "자동제어반", 2, 10, "협의중", 51000000, "전환"),
+        (5, "PLC 판넬", 2, 13, "협의중", 38000000, "진행중"),
+        (6, "인버터 판넬", 1, 7, "유력", 29000000, "진행중"),
+        (0, "계장 제어반", 2, 18, "초기", 44000000, "진행중"),
+        (2, "모터 제어반", 1, 25, "협의중", 36000000, "보류"),
+        (4, "현장 조작반", 2, 11, "초기", 24000000, "실패"),
     ]
     return [
         created_id(
             client.post(
-                "/api/quotes",
+                f"/api/quotes?base_date={as_date(base_date)}",
                 {
                     "customer_id": customers[customer_index],
                     "item_name": item_name,
@@ -115,12 +115,11 @@ def seed_quotes(client: ApiClient, customers: list[int], base_date: date) -> lis
                     "expected_due_date": as_date(base_date + timedelta(days=days)),
                     "quote_stage": stage,
                     "estimated_amount": amount,
-                    "probability": probability,
                     "status": status,
                 },
             )
         )
-        for customer_index, item_name, quantity, days, stage, amount, probability, status in rows
+        for customer_index, item_name, quantity, days, stage, amount, status in rows
     ]
 
 
@@ -138,6 +137,10 @@ def seed_orders(client: ApiClient, customers: list[int], quotes: list[int], base
         (2, None, "현장 조작반", 1, 16, "진행중"),
         (3, None, "분전반", 1, 2, "완료"),
         (4, None, "저압 배전반", 2, 24, "대기"),
+        (0, None, "고압 배전반", 2, -25, "완료"),
+        (1, None, "MCC 제어반", 1, -20, "완료"),
+        (2, None, "분전반", 2, -15, "완료"),
+        (3, None, "자동제어반", 1, -8, "완료"),
     ]
     return [
         created_id(
@@ -158,7 +161,7 @@ def seed_orders(client: ApiClient, customers: list[int], quotes: list[int], base
 
 
 def seed_units(client: ApiClient, orders: list[int]) -> list[int]:
-    unit_counts = [2, 1, 3, 2, 2, 1, 2, 1, 2, 1, 1, 4]
+    unit_counts = [2, 1, 3, 2, 2, 1, 2, 1, 2, 1, 1, 4, 2, 1, 2, 1]
     statuses = [
         "진행중",
         "지연주의",
@@ -182,6 +185,12 @@ def seed_units(client: ApiClient, orders: list[int]) -> list[int]:
         "대기",
         "진행중",
         "자재발주중",
+        "완료",
+        "완료",
+        "완료",
+        "완료",
+        "완료",
+        "완료",
     ]
     units: list[int] = []
     unit_index = 0
@@ -209,11 +218,13 @@ def seed_units(client: ApiClient, orders: list[int]) -> list[int]:
 def seed_process_masters(client: ApiClient) -> list[int]:
     rows = [
         ("설계", 1, "1.0"),
-        ("자재준비", 2, "1.5"),
-        ("판금/조립", 3, "2.0"),
-        ("배선", 4, "2.5"),
-        ("검사", 5, "1.0"),
-        ("시험", 6, "1.0"),
+        ("설계 확정", 2, "0.5"),
+        ("판금·절곡", 3, "1.0"),
+        ("도장", 4, "1.0"),
+        ("부스바·조립", 5, "1.0"),
+        ("배선", 6, "2.5"),
+        ("검사·시험", 7, "2.0"),
+        ("출하 대기", 8, "0.5"),
     ]
     return [
         created_id(
@@ -227,13 +238,21 @@ def seed_process_masters(client: ApiClient) -> list[int]:
 
 
 def seed_unit_processes(client: ApiClient, units: list[int], processes: list[int], base_date: date) -> None:
-    completion_by_unit = [3, 2, 1, 4, 3, 0, 0, 2, 1, 6, 4, 3, 0, 2, 3, 4, 6, 0, 0, 1, 2, 1]
-    warning_units = {2, 3, 9, 14}
-    rework_pairs = {(2, 2), (11, 4), (16, 4), (17, 5)}
+    completion_by_unit = [2, 1, 1, 4, 3, 0, 0, 2, 1, 8, 5, 4, 0, 2, 3, 5, 8, 0, 0, 1, 2, 0, 8, 8, 8, 8, 8, 8]
+    warning_units = {2, 3, 8, 9, 14, 22}
+    rework_pairs = {(2, 3), (11, 6), (16, 6), (17, 7)}
+    week_start = base_date - timedelta(days=base_date.weekday())
+    historical_completed_dates = {
+        23: date(2026, 7, 10),
+        24: date(2026, 7, 10),
+        25: date(2026, 7, 18),
+        26: date(2026, 7, 20),
+        27: date(2026, 7, 20),
+        28: date(2026, 7, 30),
+    }
 
     for unit_index, unit_id in enumerate(units, start=1):
         completed_count = completion_by_unit[unit_index - 1]
-        start_day = base_date - timedelta(days=completed_count + 2)
 
         for process_index, process_id in enumerate(processes, start=1):
             started_at = None
@@ -242,9 +261,13 @@ def seed_unit_processes(client: ApiClient, units: list[int], processes: list[int
 
             if process_index <= completed_count:
                 status = "완료"
-                started_at = datetime.combine(start_day + timedelta(days=process_index - 1), time(9, 0))
-                completed_at = started_at + timedelta(hours=8)
-                result_quantity = 1
+                if unit_index in historical_completed_dates:
+                    work_date = historical_completed_dates[unit_index] - timedelta(days=completed_count - process_index)
+                else:
+                    work_date = week_start + timedelta(days=(unit_index + process_index) % 3)
+                started_at = datetime.combine(work_date, time(8 + (process_index % 3), 30))
+                completed_at = started_at + timedelta(hours=4)
+                result_quantity = 2 + ((unit_index + process_index) % 4)
             elif process_index == completed_count + 1:
                 status = "지연주의" if unit_index in warning_units else "진행중"
                 started_at = datetime.combine(base_date - timedelta(days=1), time(9, 0))
@@ -288,23 +311,23 @@ def seed_materials(client: ApiClient) -> list[int]:
 
 def seed_inventories(client: ApiClient, materials: list[int], base_date: date) -> dict[int, list[int]]:
     stocks = [
-        (18, 9),
-        (22, 12),
-        (60, 40),
-        (80, 24),
-        (120, 55),
-        (300, 110),
-        (500, 150),
-        (20, 7),
-        (50, 36),
-        (45, 29),
-        (16, 5),
-        (70, 28),
+        (120, 80, 14, 8),
+        (160, 90, 21, 10),
+        (360, 240, 48, 28),
+        (500, 300, 60, 35),
+        (300, 180, 40, 23),
+        (1200, 700, 130, 60),
+        (1800, 1000, 170, 90),
+        (140, 80, 16, 9),
+        (240, 160, 44, 24),
+        (260, 140, 38, 19),
+        (50, 30, 5, 3),
+        (420, 260, 65, 35),
     ]
     inventories: dict[int, list[int]] = {}
 
     for index, material_id in enumerate(materials, start=1):
-        first_purchase, second_purchase = stocks[index - 1]
+        first_purchase, second_purchase, first_current, second_current = stocks[index - 1]
         inventories[material_id] = [
             created_id(
                 client.post(
@@ -313,7 +336,7 @@ def seed_inventories(client: ApiClient, materials: list[int], base_date: date) -
                         "material_id": material_id,
                         "lot_no": f"LOT-2607-{index:02d}A",
                         "purchased_quantity": first_purchase,
-                        "current_quantity": max(first_purchase - index, 0),
+                        "current_quantity": first_current,
                         "received_at": as_date(base_date - timedelta(days=24 + index)),
                     },
                 )
@@ -325,7 +348,7 @@ def seed_inventories(client: ApiClient, materials: list[int], base_date: date) -
                         "material_id": material_id,
                         "lot_no": f"LOT-2608-{index:02d}B",
                         "purchased_quantity": second_purchase,
-                        "current_quantity": second_purchase,
+                        "current_quantity": second_current,
                         "received_at": as_date(base_date - timedelta(days=index)),
                     },
                 )
@@ -341,15 +364,16 @@ def seed_order_materials(
     materials: list[int],
     inventories: dict[int, list[int]],
 ) -> None:
+    order_base_quantities = [8, 12, 24, 36, 18, 80, 120, 10, 18, 20, 3, 30]
+
     for order_index, order_id in enumerate(orders):
         material_count = 5 if order_index < 7 else 4
         start = order_index % len(materials)
 
         for offset in range(material_count):
-            material_id = materials[(start + offset) % len(materials)]
-            quantity = 1 + ((order_index + offset) % 4)
-            if material_id in materials[4:7]:
-                quantity *= 10
+            material_index = (start + offset) % len(materials)
+            material_id = materials[material_index]
+            quantity = order_base_quantities[material_index] + ((order_index + offset) % 4) * 2
 
             client.post(
                 "/api/order-materials",
@@ -363,14 +387,15 @@ def seed_order_materials(
 
 
 def seed_quote_materials(client: ApiClient, quotes: list[int], materials: list[int]) -> None:
+    quote_base_quantities = [6, 10, 20, 30, 14, 60, 90, 8, 14, 16, 2, 24]
+
     for quote_index, quote_id in enumerate(quotes):
         start = (quote_index * 2) % len(materials)
 
         for offset in range(4):
-            material_id = materials[(start + offset) % len(materials)]
-            quantity = 2 + ((quote_index + offset) % 5)
-            if material_id in materials[4:7]:
-                quantity *= 12
+            material_index = (start + offset) % len(materials)
+            material_id = materials[material_index]
+            quantity = quote_base_quantities[material_index] + ((quote_index + offset) % 5) * 2
 
             client.post(
                 "/api/quote-materials",
@@ -464,7 +489,7 @@ def seed_events(client: ApiClient, units: list[int], base_date: date) -> None:
         (14, "자재", "전선 현재고 부족 예상", "warning"),
         (15, "검사", "AI 배선검사 FAIL", "error"),
         (16, "시험", "성적서 저장 완료", "info"),
-        (17, "공정", "자재준비 대기", "info"),
+        (17, "공정", "설계 확정 후 자재 발주 대기", "info"),
         (18, "수주", "납기 변경 검토 필요", "warning"),
         (19, "시스템", "일일 집계 갱신", "info"),
     ]

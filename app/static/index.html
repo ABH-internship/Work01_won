@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DN전기 SMART OPS — 스마트공장 통합 관제 시스템 (과제용 시안)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#12161B; --panel:#1A2027; --panel2:#20272F; --line:#2A323C;
+  --ink:#E6EAEE; --mut:#8B96A2; --dim:#5C6773;
+  --yellow:#E9B50B; --green:#3FBF7F; --red:#E05B41; --blue:#4C8DD8;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:14.5px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.mono{font-family:'IBM Plex Mono',ui-monospace,monospace}
+button{font-family:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+
+/* ── 상단 바 ── */
+.appbar{display:flex;align-items:center;gap:16px;padding:14px 22px;background:linear-gradient(180deg,#161B21,#12161B);border-bottom:2px solid var(--yellow);flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:12px}
+.logo .mark{width:40px;height:40px;border:2px solid var(--yellow);border-radius:5px;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-weight:500;color:var(--yellow);font-size:15px;background:#0E1216}
+.logo h1{font-size:17px;font-weight:700;letter-spacing:.01em}
+.logo h1 small{display:block;font-size:11px;font-weight:400;color:var(--mut);letter-spacing:.08em}
+.appbar .grow{flex:1}
+.chip{font-family:'IBM Plex Mono',monospace;font-size:11px;padding:5px 10px;border-radius:3px;border:1px solid var(--line);color:var(--mut);white-space:nowrap}
+.chip.lvl{border-color:rgba(76,141,216,.5);color:var(--blue)}
+.chip.demo{background:var(--yellow);color:#14181D;border-color:var(--yellow);font-weight:500}
+#clock{font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--ink)}
+
+/* ── 탭 ── */
+.tabs{display:flex;gap:4px;padding:10px 22px 0;border-bottom:1px solid var(--line);overflow-x:auto;background:var(--bg);position:sticky;top:0;z-index:9}
+.tabs button{background:none;border:none;border-bottom:3px solid transparent;color:var(--mut);padding:10px 14px 12px;font-size:14px;white-space:nowrap}
+.tabs button .no{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--dim);margin-right:6px}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--yellow);font-weight:500}
+.tabs button:hover{color:var(--ink)}
+
+main{padding:20px 22px 60px;max-width:1240px;margin:0 auto}
+.panelbox{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:16px 18px;margin-bottom:14px}
+.panelbox h2{font-size:15px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.panelbox h2 .sub{font-size:11.5px;color:var(--mut);font-weight:400}
+.grid{display:grid;gap:14px}
+.g2{grid-template-columns:1.4fr 1fr}
+.g3{grid-template-columns:repeat(3,1fr)}
+@media(max-width:900px){.g2,.g3{grid-template-columns:1fr}}
+
+/* ── KPI ── */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:14px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px 16px}
+.kpi .lb{font-size:11.5px;color:var(--mut);letter-spacing:.04em}
+.kpi .v{font-family:'IBM Plex Mono',monospace;font-size:26px;font-weight:500;margin:2px 0}
+.kpi .v small{font-size:13px;color:var(--mut)}
+.kpi .d{font-size:11.5px}
+.up{color:var(--green)}.dn{color:var(--red)}.st{color:var(--mut)}
+.live{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);margin-right:6px;animation:pulse 1.6s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@media (prefers-reduced-motion: reduce){.live,.dotflow{animation:none !important}}
+
+/* ── 공정 라인 (시그니처) ── */
+.line{display:flex;align-items:stretch;gap:0;overflow-x:auto;padding:6px 0}
+.stn{flex:1;min-width:128px;background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:10px 12px;position:relative}
+.stn .nm{font-size:12.5px;color:var(--mut)}
+.stn .ct{font-family:'IBM Plex Mono',monospace;font-size:21px;margin:2px 0}
+.stn .ct small{font-size:11px;color:var(--dim)}
+.stn .stt{font-size:11px;font-family:'IBM Plex Mono',monospace}
+.stn.run{border-color:rgba(63,191,127,.45)} .stn.run .stt{color:var(--green)}
+.stn.warn{border-color:rgba(233,181,11,.55)} .stn.warn .stt{color:var(--yellow)}
+.stn.wait{border-color:rgba(92,103,115,.45)} .stn.wait .stt{color:var(--mut)}
+.conn{width:34px;min-width:34px;position:relative;display:flex;align-items:center}
+.conn::before{content:"";position:absolute;left:0;right:0;top:50%;height:2px;background:var(--line)}
+.conn .dotflow{position:absolute;top:50%;left:0;width:6px;height:6px;margin-top:-3px;border-radius:50%;background:var(--yellow);animation:flow 2.2s linear infinite}
+@keyframes flow{from{left:0;opacity:.2}30%{opacity:1}to{left:calc(100% - 6px);opacity:.2}}
+
+/* ── 표 ── */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{color:var(--mut);font-weight:500;text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);font-size:12px;letter-spacing:.03em}
+td{padding:9px 10px;border-bottom:1px solid rgba(42,50,60,.6);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+.pbar{height:7px;background:#0E1216;border-radius:4px;overflow:hidden;min-width:90px}
+.pbar i{display:block;height:100%;background:var(--blue);border-radius:4px}
+.pbar i.g{background:var(--green)} .pbar i.y{background:var(--yellow)} .pbar i.r{background:var(--red)} .pbar i.m{background:var(--dim)}
+.st-chip{font-family:'IBM Plex Mono',monospace;font-size:10.5px;padding:2px 7px;border-radius:3px;white-space:nowrap}
+.st-run{background:rgba(63,191,127,.14);color:var(--green)}
+.st-wait{background:rgba(92,103,115,.2);color:var(--mut)}
+.st-warn{background:rgba(233,181,11,.14);color:var(--yellow)}
+.st-done{background:rgba(76,141,216,.14);color:var(--blue)}
+.st-fail{background:rgba(224,91,65,.14);color:var(--red)}
+
+/* ── 알림 ── */
+.feed{list-style:none;max-height:300px;overflow:auto}
+.feed li{display:flex;gap:10px;padding:8px 2px;border-bottom:1px solid rgba(42,50,60,.6);font-size:12.5px}
+.feed .t{font-family:'IBM Plex Mono',monospace;color:var(--dim);white-space:nowrap;font-size:11px;padding-top:2px}
+.feed .ic{width:8px;height:8px;border-radius:50%;margin-top:6px;flex:none}
+.ic.g{background:var(--green)}.ic.y{background:var(--yellow)}.ic.r{background:var(--red)}.ic.b{background:var(--blue)}
+
+/* ── 차트 ── */
+.chart svg{width:100%;height:auto;display:block}
+.axis{font-family:'IBM Plex Mono',monospace;font-size:10px;fill:var(--dim)}
+
+/* ── AI 검사 ── */
+.inspect{display:grid;grid-template-columns:1.2fr 1fr;gap:14px}
+@media(max-width:900px){.inspect{grid-template-columns:1fr}}
+.viewer{background:#0E1216;border:1px solid var(--line);border-radius:6px;padding:12px;position:relative}
+.viewer svg{width:100%;height:auto;display:block}
+.scanline{position:absolute;left:12px;right:12px;height:2px;background:linear-gradient(90deg,transparent,var(--yellow),transparent);top:14px;opacity:0;pointer-events:none}
+.btn{background:var(--yellow);color:#14181D;border:none;border-radius:4px;padding:10px 16px;font-weight:700;font-size:14px}
+.btn[disabled]{opacity:.45;cursor:default}
+.btn.ghost{background:transparent;color:var(--mut);border:1px solid var(--line);font-weight:400}
+.results{list-style:none;margin-top:10px}
+.results li{display:flex;justify-content:space-between;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:4px;margin-bottom:6px;font-size:12.5px;background:var(--panel2)}
+.results li b{font-family:'IBM Plex Mono',monospace;font-weight:500}
+.conf{color:var(--mut);font-family:'IBM Plex Mono',monospace;font-size:11px}
+
+/* ── 자재 ── */
+.mats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.mat{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:12px 14px;position:relative}
+.mat .nm{font-size:13px}
+.mat .qt{font-family:'IBM Plex Mono',monospace;font-size:18px;margin:2px 0}
+.mat .qt small{font-size:11px;color:var(--dim)}
+.mat .pbar{margin-top:6px}
+.mat .cap{font-size:11px;color:var(--mut);margin-top:6px}
+.mat.err{border-color:rgba(224,91,65,.45)}
+.mat.err .cap{color:var(--red)}
+.mat.warn{border-color:rgba(233,181,11,.45)}
+.mat.warn .cap{color:var(--yellow)}
+.mat.ok{border-color:rgba(63,191,127,.32)}
+.mat.ok .cap{color:var(--green)}
+
+/* ── 이력 추적 ── */
+.trace{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12.5px}
+.trace span{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:7px 11px}
+.trace em{color:var(--dim);font-style:normal;font-family:'IBM Plex Mono',monospace}
+.trace .hl{border-color:rgba(233,181,11,.55)}
+.trace-title{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.trace-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.trace-tools select{background:#0E1216;border:1px solid var(--line);border-radius:4px;color:var(--ink);padding:7px 10px;min-width:220px;font-family:'IBM Plex Mono',monospace;font-size:12px}
+.trace-tools .btn{padding:7px 12px;font-size:12px}
+.trace-head{font-size:12.5px;color:var(--mut);margin-bottom:10px}
+.timeline{list-style:none;border-top:1px solid rgba(42,50,60,.7)}
+.timeline li{display:grid;grid-template-columns:118px 62px 132px 1fr;gap:8px;align-items:center;padding:7px 2px;border-bottom:1px solid rgba(42,50,60,.6);font-size:12.5px}
+.timeline .tm{font-family:'IBM Plex Mono',monospace;color:var(--dim);white-space:nowrap}
+.timeline .tp{font-family:'IBM Plex Mono',monospace;font-size:10.5px;border-radius:3px;padding:2px 6px;text-align:center;height:22px}
+.timeline .tp.info{background:rgba(76,141,216,.14);color:var(--blue)}
+.timeline .tp.warning{background:rgba(233,181,11,.14);color:var(--yellow)}
+.timeline .tp.error{background:rgba(224,91,65,.14);color:var(--red)}
+.timeline .tp.order{background:rgba(76,141,216,.14);color:var(--blue)}
+.timeline .tp.unit{background:rgba(154,164,174,.16);color:#BAC3CC}
+.timeline .tp.material{background:rgba(233,181,11,.14);color:var(--yellow)}
+.timeline .tp.process{background:rgba(63,191,127,.14);color:var(--green)}
+.timeline .tp.inspection{background:rgba(224,91,65,.14);color:var(--red)}
+.timeline .tp.test{background:rgba(141,107,255,.16);color:#B9A7FF}
+.timeline .tp.event{background:rgba(76,141,216,.14);color:var(--blue)}
+.timeline b{font-size:12.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.timeline p{color:var(--ink);font-size:12.5px;font-weight:400;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:720px){.timeline li{grid-template-columns:92px 58px 1fr}.timeline p{grid-column:1 / -1}.timeline .tp{width:max-content}}
+
+/* ── 효과 탭 ── */
+.ba{display:grid;grid-template-columns:1fr 46px 1fr;gap:10px;align-items:stretch;margin-bottom:10px}
+@media(max-width:720px){.ba{grid-template-columns:1fr}.ba .ar{display:none}}
+.ba .b,.ba .a{border:1px solid var(--line);border-radius:5px;padding:12px 14px;background:var(--panel2)}
+.ba .a{border-color:rgba(63,191,127,.45)}
+.ba .ar{display:flex;align-items:center;justify-content:center;color:var(--yellow);font-size:20px}
+.ba h4{font-size:12px;color:var(--mut);font-weight:500;margin-bottom:4px;letter-spacing:.05em}
+.road{display:flex;gap:0;align-items:stretch;overflow-x:auto;margin-top:6px}
+.road .step{flex:1;min-width:180px;background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:12px 14px}
+.road .step b{display:block;font-size:13.5px;margin-bottom:3px}
+.road .step p{font-size:12px;color:var(--mut)}
+.road .step.now{border-color:var(--yellow)}
+.road .step .ph{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--yellow);letter-spacing:.1em}
+
+footer{border-top:1px solid var(--line);color:var(--dim);font-size:11.5px;padding:14px 22px;text-align:center}
+.hide{display:none !important}
+</style>
+</head>
+<body>
+
+<header class="appbar">
+  <div class="logo">
+    <div class="mark">DN</div>
+    <h1>DN전기 SMART OPS<small>IoT · MES · AI 통합 관제 — 과제용 시안</small></h1>
+  </div>
+  <div class="grow"></div>
+  <span class="chip lvl">생산정보 실시간 수집·분석 시스템</span>
+  <span class="chip"><span class="live"></span>수집 게이트웨이 OPC-UA 정상</span>
+  <span id="clock" class="mono">--:--:--</span>
+  <span class="chip demo">DEMO · 시연용 샘플 데이터</span>
+</header>
+
+<nav class="tabs" role="tablist" aria-label="시스템 모듈">
+  <button role="tab" aria-selected="true" data-t="t1"><span class="no">01</span>통합 관제</button>
+  <button role="tab" aria-selected="false" data-t="t2"><span class="no">02</span>수주·공정 진척</button>
+  <button role="tab" aria-selected="false" data-t="t3"><span class="no">03</span>AI 배선검사</button>
+  <button role="tab" aria-selected="false" data-t="t4"><span class="no">04</span>자재·재고</button>
+  <button role="tab" aria-selected="false" data-t="t5"><span class="no">05</span>시험·품질이력</button>
+</nav>
+
+<main>
+
+<!-- ══ 01 통합 관제 ══ -->
+<section id="t1" role="tabpanel">
+  <div class="kpis">
+    <div class="kpi"><div class="lb">금일 공정실적 (자동집계)</div><div class="v" id="k-ops">128<small> 건</small></div><div class="d st" id="k-ops-note">실시간 집계 대기</div></div>
+    <div class="kpi"><div class="lb">진행 중 호기</div><div class="v" id="k-active">14<small> 면</small></div><div class="d st" id="k-active-note">납기 임박 집계 대기</div></div>
+    <div class="kpi"><div class="lb">납기준수율 (월간)</div><div class="v" id="k-otd">92.4<small> %</small></div><div class="d st" id="k-otd-note">전월 대비 집계 대기</div></div>
+    <div class="kpi"><div class="lb">재작업 발생 (금주)</div><div class="v" id="k-rework">2<small> 건</small></div><div class="d st" id="k-rework-note">재작업 공정 집계 대기</div></div>
+    <div class="kpi"><div class="lb">주요설비 가동률</div><div class="v" id="k-util">85.6<small> %</small></div><div class="d st" id="k-util-note">절곡기 · CNC 기준</div></div>
+  </div>
+
+  <div class="panelbox">
+    <h2>라인 현황 <span class="sub">공정별 실적이 작업 단말·IoT 센서에서 자동 집계됩니다 — 수기 집계 0</span></h2>
+    <div class="line" id="process-line">
+      <div class="stn run"><div class="nm">판금·절곡</div><div class="ct" id="s1c">31<small> 건</small></div><div class="stt">RUN · CNC #2 가동</div></div>
+      <div class="conn"><span class="dotflow"></span></div>
+      <div class="stn run"><div class="nm">도장</div><div class="ct">26<small> 건</small></div><div class="stt">RUN · 건조로 78℃</div></div>
+      <div class="conn"><span class="dotflow" style="animation-delay:.5s"></span></div>
+      <div class="stn run"><div class="nm">부스바·조립</div><div class="ct" id="s3c">24<small> 건</small></div><div class="stt">RUN</div></div>
+      <div class="conn"><span class="dotflow" style="animation-delay:1s"></span></div>
+      <div class="stn warn"><div class="nm">배선</div><div class="ct">19<small> 건</small></div><div class="stt">지연주의 · DN-014</div></div>
+      <div class="conn"><span class="dotflow" style="animation-delay:1.5s"></span></div>
+      <div class="stn run"><div class="nm">검사·시험</div><div class="ct" id="s5c">17<small> 건</small></div><div class="stt">RUN · AI검사 연동</div></div>
+    </div>
+  </div>
+
+  <div class="grid g2">
+    <div class="panelbox chart">
+      <h2>주간 생산실적 <span class="sub">완료 공정 수 · 자동 집계</span></h2>
+      <svg viewBox="0 0 560 210" role="img" aria-label="주간 생산실적 막대 차트">
+        <g class="axis">
+          <text x="6" y="30">150</text><text x="6" y="90">100</text><text x="12" y="150">50</text>
+        </g>
+        <line x1="34" y1="22" x2="548" y2="22" stroke="#242C35" stroke-width="1"/>
+        <line x1="34" y1="82" x2="548" y2="82" stroke="#242C35" stroke-width="1"/>
+        <line x1="34" y1="142" x2="548" y2="142" stroke="#242C35" stroke-width="1"/>
+        <line x1="34" y1="182" x2="548" y2="182" stroke="#3A434E" stroke-width="1.5"/>
+        <g id="bars"></g>
+      </svg>
+    </div>
+    <div class="panelbox">
+      <h2>실시간 알림 <span class="sub">이상·임계 이벤트</span></h2>
+      <ul class="feed" id="feed"></ul>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 02 수주·공정 ══ -->
+<section id="t2" role="tabpanel" class="hide">
+  <div class="panelbox">
+    <h2>호기별 진척 관제 <span class="sub">수주–설계–자재–생산–시험이 한 화면 · 납기 역산 자동 경보</span></h2>
+    <div style="overflow-x:auto"><table>
+      <thead><tr><th>호기번호</th><th>품목</th><th>수요처</th><th>납기</th><th style="min-width:140px">공정 진척</th><th>현재 공정</th><th>상태</th></tr></thead>
+      <tbody id="progress-body">
+        <tr><td class="mono">DN-2607-011</td><td>고압반(VCB) 2면</td><td>○○산단 수전설비</td><td class="mono">07-24</td><td><div class="pbar"><i class="g" style="width:88%"></i></div></td><td>검사·시험</td><td><span class="st-chip st-run">정상</span></td></tr>
+        <tr><td class="mono">DN-2607-014</td><td>MCC 3면</td><td>△△수처리시설</td><td class="mono">07-28</td><td><div class="pbar"><i class="y" style="width:56%"></i></div></td><td>배선</td><td><span class="st-chip st-warn">지연주의 D-12</span></td></tr>
+        <tr><td class="mono">DN-2607-017</td><td>저압반·분전반 6면</td><td>□□플랜트 증설</td><td class="mono">08-07</td><td><div class="pbar"><i style="width:41%"></i></div></td><td>부스바·조립</td><td><span class="st-chip st-run">정상</span></td></tr>
+        <tr><td class="mono">DN-2606-096</td><td>태양광 접속반 4식</td><td>◇◇에너지</td><td class="mono">08-12</td><td><div class="pbar"><i style="width:28%"></i></div></td><td>도장</td><td><span class="st-chip st-run">정상</span></td></tr>
+        <tr><td class="mono">DN-2607-021</td><td>자동제어반 2면</td><td>☆☆펌프장</td><td class="mono">08-19</td><td><div class="pbar"><i style="width:12%"></i></div></td><td>설계 확정</td><td><span class="st-chip st-wait">자재 발주중</span></td></tr>
+        <tr><td class="mono">DN-2606-088</td><td>수배전반 개보수 1식</td><td>●● 공공청사</td><td class="mono">07-18</td><td><div class="pbar"><i class="g" style="width:100%"></i></div></td><td>출하 대기</td><td><span class="st-chip st-done">완료</span></td></tr>
+      </tbody>
+    </table></div>
+  </div>
+  <div class="panelbox">
+    <h2>납기 역산 경보 로직 <span class="sub">공정 표준시간 × 잔여 공정으로 지연 위험을 사전 감지</span></h2>
+    <p style="font-size:13px;color:var(--mut)">DN-2607-014(MCC 3면): 배선 공정 잔여 3.5일 + 시험 1일 + 여유 1일 = 최소 5.5일 필요 → 납기 D-12 대비 <span style="color:var(--yellow)">여유 6.5일, 배선 인력 1명 증원 시 정상화</span>. 지금은 이 계산을 사람이 머릿속으로 합니다 — 시스템이 매시간 자동으로 다시 계산합니다.</p>
+  </div>
+</section>
+
+<!-- ══ 03 AI 배선검사 ══ -->
+<section id="t3" role="tabpanel" class="hide">
+  <div class="panelbox">
+    <h2>AI 배선·조립 검사 <span class="sub">SafeVision-X 온디바이스 비전 — 촬영 즉시 판독, 결과는 호기 이력에 자동 저장</span></h2>
+    <div class="inspect">
+      <div class="viewer" id="viewer">
+        <div class="scanline" id="scan"></div>
+        <svg viewBox="0 0 520 340" role="img" aria-label="MCC 내부 배선 모식도">
+          <rect x="8" y="8" width="504" height="324" rx="8" fill="#11161C" stroke="#3A434E" stroke-width="2"/>
+          <text x="24" y="34" fill="#5C6773" font-size="12" font-family="IBM Plex Mono">DN-2607-014 · MCC UNIT 2/3 · CAM-01</text>
+          <!-- 단자대 -->
+          <g id="terms"></g>
+          <!-- 배선 -->
+          <path d="M70 90 C 150 60, 300 60, 430 96" stroke="#B8894A" stroke-width="4" fill="none"/>
+          <path d="M70 140 C 170 120, 300 120, 430 146" stroke="#5C6773" stroke-width="4" fill="none"/>
+          <path d="M70 190 C 170 175, 300 175, 430 196" stroke="#9AA4AE" stroke-width="4" fill="none"/>
+          <path id="badwire" d="M70 240 C 190 300, 330 180, 430 246" stroke="#4C8DD8" stroke-width="4" fill="none"/>
+          <path d="M70 290 C 180 275, 310 275, 430 292" stroke="#3FBF7F" stroke-width="4" fill="none"/>
+          <!-- 검출 박스 (숨김) -->
+          <g id="detbox" opacity="0">
+            <rect x="236" y="196" width="120" height="72" fill="none" stroke="#E05B41" stroke-width="2.5" stroke-dasharray="6 4"/>
+            <rect x="236" y="176" width="150" height="20" fill="#E05B41"/>
+            <text x="243" y="190" fill="#fff" font-size="11" font-family="IBM Plex Mono">오결선 의심 97.2%</text>
+          </g>
+          <g id="okbox" opacity="0">
+            <rect x="60" y="76" width="392" height="28" fill="none" stroke="#3FBF7F" stroke-width="1.5" stroke-dasharray="4 4"/>
+          </g>
+        </svg>
+      </div>
+      <div>
+        <button class="btn" id="btn-scan">▶ AI 검사 실행 (시연)</button>
+        <button class="btn ghost" id="btn-reset">초기화</button>
+        <p id="scanmsg" style="margin-top:10px;font-size:13px;color:var(--mut)">검사 대기 중 — 작업자가 태블릿·고정 카메라로 촬영하면 약 2초 내 판독됩니다.</p>
+        <ul class="results" id="res"></ul>
+        <div class="grid g3" style="margin-top:12px">
+          <div class="kpi"><div class="lb">금일 검사</div><div class="v" id="ai-n">47<small> 면</small></div></div>
+          <div class="kpi"><div class="lb">검출</div><div class="v" id="ai-d">3<small> 건</small></div></div>
+          <div class="kpi"><div class="lb">평균 판독</div><div class="v">1.8<small> 초</small></div></div>
+        </div>
+        <p style="margin-top:10px;font-size:12px;color:var(--dim)">※ 출하 전 오결선 1건은 현장에서 재방문·크레인 재작업 1건입니다. 검출 시점이 곧 비용입니다.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 04 자재·재고 ══ -->
+<section id="t4" role="tabpanel" class="hide">
+  <div class="panelbox">
+    <h2>주요 자재 현황 <span class="sub">수주 BOM과 연동 — 결품·과잉을 발주 전에 계산</span></h2>
+    <div class="mats">
+      <div class="mat"><div class="nm">MCCB (주요 프레임)</div><div class="qt">146<small> EA</small></div><div class="pbar"><i class="g" style="width:72%"></i></div><div class="cap">향후 4주 소요 대비 충분</div></div>
+      <div class="mat"><div class="nm">전자접촉기 (MC)</div><div class="qt">88<small> EA</small></div><div class="pbar"><i class="y" style="width:38%"></i></div><div class="cap" style="color:var(--yellow)">DN-021 착수 전 30EA 발주 권고</div></div>
+      <div class="mat"><div class="nm">동 부스바 (25×3T)</div><div class="qt">412<small> m</small></div><div class="pbar"><i class="g" style="width:64%"></i></div><div class="cap">시세 연동 발주 시점 분석 지원</div></div>
+      <div class="mat"><div class="nm">외함 강판 (1.6T)</div><div class="qt">57<small> 매</small></div><div class="pbar"><i class="r" style="width:14%"></i></div><div class="cap" style="color:var(--red)">결품 경보 — 리드타임 5일, 금일 발주 필요</div></div>
+      <div class="mat"><div class="nm">단자대·덕트류</div><div class="qt">양호<small></small></div><div class="pbar"><i class="g" style="width:81%"></i></div><div class="cap">소모성 자동 보충 규칙 적용</div></div>
+    </div>
+  </div>
+  <div class="panelbox">
+    <h2>AI 소요 예측 (주간) <span class="sub">확정 수주 + 진행 견적 가중치 반영</span></h2>
+    <table>
+      <thead><tr><th>자재</th><th>현재고</th><th>2주 내 소요</th><th>판정</th><th>제안</th></tr></thead>
+      <tbody id="material-body">
+        <tr><td>외함 강판 1.6T</td><td class="mono">57매</td><td class="mono">96매</td><td><span class="st-chip st-fail">부족 39</span></td><td>금일 발주 (리드타임 5일)</td></tr>
+        <tr><td>전자접촉기 MC-22b</td><td class="mono">88EA</td><td class="mono">104EA</td><td><span class="st-chip st-warn">부족 16</span></td><td>7/18까지 발주</td></tr>
+        <tr><td>MCCB 100AF</td><td class="mono">146EA</td><td class="mono">92EA</td><td><span class="st-chip st-run">충분</span></td><td>—</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ══ 05 시험·품질이력 ══ -->
+<section id="t5" role="tabpanel" class="hide">
+  <div class="panelbox">
+    <h2>시험성적 전산화 <span class="sub">절연저항·내전압·동작시험 결과가 계측기에서 시스템으로 — 수기 성적서 0</span></h2>
+    <table>
+      <thead><tr><th>호기</th><th>시험항목</th><th>측정값</th><th>기준</th><th>판정</th><th>시험자 / 일시</th></tr></thead>
+      <tbody id="test-body">
+        <tr><td class="mono">DN-2607-011</td><td>절연저항 (1000V)</td><td class="mono">2,340 MΩ</td><td class="mono">≥ 1,000</td><td><span class="st-chip st-run">PASS</span></td><td class="mono">QC-02 · 07-16 09:41</td></tr>
+        <tr><td class="mono">DN-2607-011</td><td>내전압 (AC 22kV/1min)</td><td class="mono">누설 4.2 mA</td><td class="mono">이상 없음</td><td><span class="st-chip st-run">PASS</span></td><td class="mono">QC-02 · 07-16 10:05</td></tr>
+        <tr><td class="mono">DN-2606-088</td><td>시퀀스 동작시험</td><td class="mono">32/32 step</td><td class="mono">전 항목</td><td><span class="st-chip st-run">PASS</span></td><td class="mono">QC-01 · 07-15 16:20</td></tr>
+        <tr><td class="mono">DN-2607-009</td><td>절연저항 (500V)</td><td class="mono">88 MΩ</td><td class="mono">≥ 100</td><td><span class="st-chip st-fail">FAIL → 재시험</span></td><td class="mono">QC-01 · 07-14 11:02</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="panelbox">
+    <div class="trace-title">
+      <h2>이력 추적 (Traceability) <span class="sub">발주처 문의·클레임 시, 호기 번호 하나로 전 이력 3초 소환</span></h2>
+      <div class="trace-tools">
+        <select id="trace-unit-select" aria-label="호기 선택"></select>
+        <button class="btn ghost" id="trace-load" type="button">조회</button>
+      </div>
+    </div>
+    <div class="trace-head" id="trace-head">호기를 선택하면 수주, 자재 LOT, 공정, 검사, 시험, 이벤트 이력이 시간순으로 표시됩니다.</div>
+    <ul class="timeline" id="trace-timeline"></ul>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  본 화면은 채용 과제용 시스템 시안(DEMO)이며, 회사명·수치·수주정보는 모두 가상의 샘플 데이터입니다 · 표준 참고: OPC-UA(IEC 62541) / AAS(IEC 63278) · ㈜에이비에이치(ABH)
+</footer>
+
+<script>
+(function(){
+  // 탭
+  var tabs=document.querySelectorAll('.tabs [role=tab]');
+  tabs.forEach(function(b){b.addEventListener('click',function(){
+    tabs.forEach(function(x){x.setAttribute('aria-selected','false')});
+    b.setAttribute('aria-selected','true');
+    document.querySelectorAll('main [role=tabpanel]').forEach(function(p){p.classList.add('hide')});
+    document.getElementById(b.dataset.t).classList.remove('hide');
+  })});
+
+  // 시계
+  function clock(){var d=new Date();document.getElementById('clock').textContent=
+    d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+' '+
+    String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0');}
+  clock();setInterval(clock,1000);
+
+  function api(path, options){
+    return fetch(path, options).then(function(response){
+      if(!response.ok) throw new Error(path+' '+response.status);
+      return response.json();
+    });
+  }
+
+  function fmtDate(value){
+    if(!value) return '-';
+    return String(value).slice(5).replace('-', '-');
+  }
+
+  function weekdayLabel(value){
+    var date=new Date(value+'T00:00:00');
+    return ['일','월','화','수','목','금','토'][date.getDay()];
+  }
+
+  function esc(value){
+    return String(value == null ? '' : value).replace(/[&<>"']/g,function(ch){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
+    });
+  }
+
+  function statusClass(value){
+    if(value==='완료'||value==='충분'||value==='PASS'||value==='정상') return 'st-run';
+    if(value==='지연주의'||value==='부족'||value==='FAIL') return 'st-warn';
+    if(value==='자재발주중'||value==='대기') return 'st-wait';
+    return 'st-done';
+  }
+
+  function progressBarClass(value){
+    if(value==='완료') return 'g';
+    if(value==='지연주의') return 'y';
+    if(value==='자재발주중'||value==='대기') return 'm';
+    return '';
+  }
+
+  function ddayLabel(days){
+    var value=Number(days);
+    if(!Number.isFinite(value)) return '';
+    if(value===0) return 'D-Day';
+    return value>0 ? 'D-'+value : 'D+'+Math.abs(value);
+  }
+
+  function progressStatusLabel(row){
+    if(row.status==='지연주의') return row.status+' '+ddayLabel(row.days_until_due);
+    return row.status;
+  }
+
+  function fmtDateTime(value){
+    if(!value) return '-';
+    var date=new Date(value);
+    return String(date.getMonth()+1).padStart(2,'0')+'-'+
+      String(date.getDate()).padStart(2,'0')+' '+
+      String(date.getHours()).padStart(2,'0')+':'+
+      String(date.getMinutes()).padStart(2,'0');
+  }
+
+  function materialChipClass(severity){
+    if(severity==='error') return 'st-fail';
+    if(severity==='warning') return 'st-warn';
+    return 'st-run';
+  }
+
+  function materialBarClass(severity){
+    if(severity==='error') return 'r';
+    if(severity==='warning') return 'y';
+    return 'g';
+  }
+
+  function materialCardClass(severity){
+    if(severity==='error') return 'err';
+    if(severity==='warning') return 'warn';
+    return 'ok';
+  }
+
+  function timelineTypeClass(type){
+    if(type==='수주') return 'order';
+    if(type==='호기') return 'unit';
+    if(type==='자재') return 'material';
+    if(type==='공정') return 'process';
+    if(type==='검사') return 'inspection';
+    if(type==='시험') return 'test';
+    return 'event';
+  }
+
+  function setTrend(id,value,suffix){
+    var el=document.getElementById(id);
+    var num=Number(value);
+    el.className='d '+(num>0?'up':num<0?'dn':'st');
+    el.textContent=(num>0?'▲ ':'')+(num<0?'▼ ':'')+Math.abs(num).toFixed(1)+suffix;
+  }
+
+  function renderBars(data){
+    var g=document.getElementById('bars'),W=514,x0=34,bw=48,gap=(W-7*bw)/8;
+    g.innerHTML='';
+    data.forEach(function(o,i){
+    var h=o.v/150*158,x=x0+gap+i*(bw+gap),y=182-h;
+    g.innerHTML+='<rect x="'+x+'" y="'+y+'" width="'+bw+'" height="'+h+'" rx="3" fill="'+(o.hl?'#E9B50B':'#4C8DD8')+'" opacity="'+(o.hl?1:.75)+'"/>'
+      +'<text class="axis" x="'+(x+bw/2)+'" y="198" text-anchor="middle">'+o.d+'</text>'
+      +'<text x="'+(x+bw/2)+'" y="'+(y-6)+'" text-anchor="middle" fill="'+(o.hl?'#E9B50B':'#8B96A2')+'" font-size="11" font-family="IBM Plex Mono">'+o.v+'</text>';
+    });
+  }
+
+  renderBars([{d:'월',v:112},{d:'화',v:126},{d:'수',v:98},{d:'목',v:134},{d:'금',v:121},{d:'토',v:64},{d:'금일',v:128,hl:1}]);
+
+  var feedEl=document.getElementById('feed');
+
+  function renderEvents(rows){
+    feedEl.innerHTML='';
+    rows.forEach(function(row){
+      var color=row.severity==='error'?'r':row.severity==='warning'?'y':row.severity==='info'?'b':'g';
+      var time=row.occurred_at ? new Date(row.occurred_at).toLocaleTimeString('ko-KR',{hour12:false}) : '--:--:--';
+      var unit=row.unit_no ? row.unit_no+' · ' : '';
+      var li=document.createElement('li');
+      li.innerHTML='<span class="ic '+color+'"></span><span class="t">'+time+'</span><span>'+unit+row.message+'</span>';
+      feedEl.appendChild(li);
+    });
+  }
+
+  function loadDashboard(){
+    api('/api/dashboard/summary').then(function(row){
+      document.getElementById('k-ops').innerHTML=row.today_process_results+'<small> 건</small>';
+      document.getElementById('k-ops-note').textContent=row.today_process_message;
+      document.getElementById('k-active').innerHTML=row.active_units+'<small> 면</small>';
+      document.getElementById('k-active-note').textContent='납기 임박 '+row.due_soon_units+'면 포함';
+      document.getElementById('k-otd').innerHTML=Number(row.on_time_rate).toFixed(1)+'<small> %</small>';
+      setTrend('k-otd-note',row.on_time_rate_delta,'%p · 전월 '+Number(row.previous_month_on_time_rate).toFixed(1)+'%');
+      document.getElementById('k-rework').innerHTML=row.weekly_reworks+'<small> 건</small>';
+      document.getElementById('k-rework-note').textContent=row.weekly_rework_summary;
+      document.getElementById('k-rework-note').className='d '+(row.weekly_reworks>0?'dn':'st');
+    }).catch(console.warn);
+
+    api('/api/dashboard/equipment-utilization').then(function(row){
+      document.getElementById('k-util').innerHTML=Number(row.utilization_rate).toFixed(1)+'<small> %</small>';
+      document.getElementById('k-util-note').textContent=row.equipments.map(function(item){return item.name;}).join(' · ')+' 기준';
+    }).catch(console.warn);
+
+    api('/api/dashboard/process-line').then(function(rows){
+      var line=document.getElementById('process-line');
+      line.innerHTML='';
+      rows.forEach(function(row,index){
+        line.innerHTML+='<div class="stn '+row.line_state+'"><div class="nm">'+esc(row.process_name)+'</div><div class="ct">'+row.completed_count+'<small> 건</small></div><div class="stt">'+esc(row.status_text)+'</div></div>';
+        if(index<rows.length-1) line.innerHTML+='<div class="conn"><span class="dotflow"></span></div>';
+      });
+    }).catch(console.warn);
+
+    api('/api/dashboard/weekly-output').then(function(rows){
+      var today=new Date().toISOString().slice(0,10);
+      renderBars(rows.map(function(row,index){
+        return {d:weekdayLabel(row.work_date),v:row.completed_count,hl:row.work_date===today};
+      }));
+    }).catch(console.warn);
+
+    api('/api/events/recent?limit=8').then(renderEvents).catch(console.warn);
+  }
+
+  function loadProgress(){
+    api('/api/progress/units').then(function(rows){
+      var body=document.getElementById('progress-body');
+      body.innerHTML='';
+      rows.forEach(function(row){
+        var progress=Number(row.progress_rate);
+        var chip=statusClass(row.status);
+        var bar=progressBarClass(row.status);
+        body.innerHTML+='<tr><td class="mono">'+row.unit_no+'</td><td>'+row.item_name+'</td><td>'+row.customer_name+'</td><td class="mono">'+fmtDate(row.due_date)+'</td><td><div class="pbar"><i class="'+bar+'" style="width:'+progress+'%"></i></div></td><td>'+(row.current_process||'-')+'</td><td><span class="st-chip '+chip+'">'+progressStatusLabel(row)+'</span></td></tr>';
+      });
+    }).catch(console.warn);
+  }
+
+  function loadMaterials(){
+    api('/api/materials/requirements').then(function(rows){
+      if(!rows.length) return;
+      var body=document.getElementById('material-body');
+      var cards=document.querySelector('#t4 .mats');
+      body.innerHTML='';
+      cards.innerHTML='';
+      rows.forEach(function(row){
+        var current=Number(row.current_quantity);
+        var required=Number(row.required_quantity_2weeks);
+        var chip=materialChipClass(row.severity);
+        body.innerHTML+='<tr><td>'+esc(row.material_name)+'</td><td class="mono">'+current.toFixed(1)+' '+esc(row.unit)+'</td><td class="mono">'+required.toFixed(1)+' '+esc(row.unit)+'</td><td><span class="st-chip '+chip+'">'+esc(row.judgement)+'</span></td><td>'+esc(row.suggestion)+'</td></tr>';
+      });
+      rows.slice(0,5).forEach(function(row){
+        var current=Number(row.current_quantity);
+        var required=Number(row.required_quantity_2weeks);
+        var ratio=required>0 ? Math.min(100, Math.round(current/required*100)) : 100;
+        var color=materialBarClass(row.severity);
+        var card=materialCardClass(row.severity);
+        var caption=row.message;
+        cards.innerHTML+='<div class="mat '+card+'"><div class="nm">'+esc(row.material_name)+'</div><div class="qt">'+current.toFixed(1)+'<small> '+esc(row.unit)+'</small></div><div class="pbar"><i class="'+color+'" style="width:'+ratio+'%"></i></div><div class="cap">'+esc(caption)+'</div></div>';
+      });
+    }).catch(console.warn);
+  }
+
+  function loadQuality(){
+    api('/api/tests?limit=20').then(function(rows){
+      var body=document.getElementById('test-body');
+      body.innerHTML='';
+      rows.forEach(function(row){
+        var chip=row.result==='PASS'?'st-run':'st-fail';
+        var tested=fmtDateTime(row.tested_at);
+        body.innerHTML+='<tr><td class="mono">'+row.unit_no+'</td><td>'+row.test_item+'</td><td class="mono">'+row.measured_value+'</td><td class="mono">'+row.criteria+'</td><td><span class="st-chip '+chip+'">'+row.result+'</span></td><td class="mono">'+row.tester+' · '+tested+'</td></tr>';
+      });
+    }).catch(console.warn);
+
+    loadTraceOptions();
+  }
+
+  function loadTraceOptions(){
+    api('/api/progress/units').then(function(rows){
+      var select=document.getElementById('trace-unit-select');
+      if(!select || select.dataset.loaded==='1') return;
+      select.innerHTML='';
+      rows.forEach(function(row){
+        select.innerHTML+='<option value="'+esc(row.unit_no)+'">'+esc(row.unit_no)+'</option>';
+      });
+      select.dataset.loaded='1';
+      if(rows[0]){
+        select.value=rows[0].unit_no;
+        loadTrace(rows[0].unit_no);
+      }
+    }).catch(console.warn);
+  }
+
+  function loadTrace(unitNo){
+    if(!unitNo) return;
+    api('/api/trace/'+encodeURIComponent(unitNo)).then(function(row){
+      var head=document.getElementById('trace-head');
+      var timeline=document.getElementById('trace-timeline');
+      head.innerHTML='<span class="mono">'+esc(row.unit_no)+'</span> · '+esc(row.item_name)+' · '+esc(row.customer_name)+' · 납기 <span class="mono">'+fmtDate(row.due_date)+'</span>';
+      timeline.innerHTML='';
+      if(!row.timeline || !row.timeline.length){
+        timeline.innerHTML='<li><span class="tm">-</span><span class="tp info">정보</span><b>이력 없음</b><p>표시할 이력이 없습니다.</p></li>';
+        return;
+      }
+      row.timeline.forEach(function(item){
+        var typeClass=timelineTypeClass(item.event_type);
+        timeline.innerHTML+='<li><span class="tm">'+fmtDateTime(item.occurred_at)+'</span><span class="tp '+typeClass+'">'+esc(item.event_type)+'</span><b>'+esc(item.title)+'</b><p>'+esc(item.message)+'</p></li>';
+      });
+    }).catch(console.warn);
+  }
+
+  document.getElementById('trace-load').addEventListener('click',function(){
+    loadTrace(document.getElementById('trace-unit-select').value);
+  });
+  document.getElementById('trace-unit-select').addEventListener('change',function(){
+    loadTrace(this.value);
+  });
+
+  loadDashboard();
+  loadProgress();
+  loadMaterials();
+  loadQuality();
+  setInterval(function(){
+    loadDashboard();
+    loadProgress();
+    loadMaterials();
+    loadQuality();
+  },30000);
+
+  // 단자대 그리기
+  var terms=document.getElementById('terms'),ys=[86,136,186,236,286];
+  ys.forEach(function(y){
+    terms.innerHTML+='<rect x="46" y="'+(y-12)+'" width="24" height="26" rx="3" fill="#20272F" stroke="#3A434E"/>'
+      +'<rect x="430" y="'+(y-10)+'" width="24" height="26" rx="3" fill="#20272F" stroke="#3A434E"/>';
+  });
+
+  // AI 검사 시연
+  var btn=document.getElementById('btn-scan'),rst=document.getElementById('btn-reset'),
+      msg=document.getElementById('scanmsg'),res=document.getElementById('res'),
+      det=document.getElementById('detbox'),okb=document.getElementById('okbox'),
+      scan=document.getElementById('scan'),viewer=document.getElementById('viewer'),
+      bad=document.getElementById('badwire');
+  var aiN=47,aiD=3,timer=null;
+  function reset(){
+    if(timer){clearInterval(timer);timer=null;}
+    det.setAttribute('opacity',0);okb.setAttribute('opacity',0);
+    bad.setAttribute('stroke','#4C8DD8');
+    res.innerHTML='';scan.style.opacity=0;
+    msg.textContent='검사 대기 중 — 작업자가 태블릿·고정 카메라로 촬영하면 약 2초 내 판독됩니다.';
+    btn.disabled=false;
+  }
+  rst.addEventListener('click',reset);
+  function saveMockInspection(){
+    function request(unitNo){
+      return api('/api/ai-inspections/mock',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        unit_no:unitNo,
+        inspection_type:'배선검사',
+        result:'FAIL',
+        confidence:97.2,
+        finding:'단자 4열 · 배선 경로 상이'
+      })
+      }).then(function(){
+        return unitNo;
+      });
+    }
+    return request('DN-2607-014').catch(function(){
+      return request('DN-2608-001');
+    });
+  }
+  btn.addEventListener('click',function(){
+    reset();btn.disabled=true;msg.textContent='촬영 → 온디바이스 추론 중…';
+    var top=14,dir=1,h=viewer.clientHeight-28;scan.style.opacity=1;
+    var t0=Date.now();
+    timer=setInterval(function(){
+      top+=dir*7;if(top>h||top<14)dir*=-1;scan.style.top=top+'px';
+      if(Date.now()-t0>2000){
+        clearInterval(timer);timer=null;scan.style.opacity=0;
+        det.setAttribute('opacity',1);okb.setAttribute('opacity',1);
+        bad.setAttribute('stroke','#E05B41');
+        aiN++;aiD++;
+        document.getElementById('ai-n').innerHTML=aiN+'<small> 면</small>';
+        document.getElementById('ai-d').innerHTML=aiD+'<small> 건</small>';
+        res.innerHTML='<li><span>단자 4열 · 배선 경로 상이 (도면 Rev.C 대비)</span><b style="color:var(--red)">오결선 의심</b><span class="conf">97.2%</span></li>'
+          +'<li><span>단자 1~3열 · 체결·경로 정상</span><b style="color:var(--green)">PASS</b><span class="conf">99.1%</span></li>'
+          +'<li><span>압착단자 누락 검사</span><b style="color:var(--green)">PASS</b><span class="conf">98.4%</span></li>';
+        saveMockInspection().then(function(unitNo){
+          msg.textContent='판독 완료 (1.9초) — 결과가 호기 '+unitNo+' 품질 이력에 자동 저장되었습니다.';
+        }).catch(function(error){
+          console.warn(error);
+          msg.textContent='판독 완료 (1.9초) — 결과 저장은 실패했습니다. API 상태를 확인해 주세요.';
+        });
+        btn.disabled=false;
+      }
+    },40);
+  });
+})();
+</script>
+</body>
+</html>
