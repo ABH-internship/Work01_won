@@ -517,7 +517,7 @@ footer{border-top:1px solid var(--line);color:var(--dim);font-size:11.5px;paddin
 
     api('/api/dashboard/equipment-utilization').then(function(row){
       document.getElementById('k-util').innerHTML=Number(row.utilization_rate).toFixed(1)+'<small> %</small>';
-      document.getElementById('k-util-note').textContent=row.equipments.map(function(item){return item.name;}).join(' · ')+' 기준';
+      document.getElementById('k-util-note').textContent='절곡기 · CNC 기준';
     }).catch(console.warn);
 
     api('/api/dashboard/process-line').then(function(rows){

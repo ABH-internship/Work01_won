@@ -133,22 +133,61 @@ def get_dashboard_summary(
 
 
 @router.get("/equipment-utilization", response_model=EquipmentUtilization)
-def get_equipment_utilization() -> dict:
-    equipments = [
-        {"name": "절곡기", "running_hours": 6.6, "planned_hours": 8.0},
-        {"name": "CNC", "running_hours": 7.1, "planned_hours": 8.0},
-    ]
-    planned_hours = sum(item["planned_hours"] for item in equipments)
-
-    for item in equipments:
-        item["utilization_rate"] = round(item["running_hours"] / item["planned_hours"] * 100, 1)
+def get_equipment_utilization(
+    base_date: date = Query(default_factory=date.today),
+    db: Session = Depends(get_db),
+) -> dict:
+    row = fetch_one(
+        db,
+        """
+        WITH bending AS (
+          SELECT up.*
+          FROM unit_processes up
+          JOIN process_masters pm ON pm.id = up.process_master_id
+          WHERE pm.name = '판금·절곡'
+        ),
+        today_targets AS (
+          SELECT b.*
+          FROM bending b
+          WHERE b.status IN ('진행중', '지연주의')
+             OR CAST(b.completed_at AS date) = CAST(:base_date AS date)
+             OR (
+               b.status = '대기'
+               AND NOT EXISTS (
+                 SELECT 1
+                 FROM unit_processes prev
+                 JOIN process_masters prev_pm ON prev_pm.id = prev.process_master_id
+                 JOIN process_masters cur_pm ON cur_pm.id = b.process_master_id
+                 WHERE prev.unit_id = b.unit_id
+                   AND prev_pm.sequence < cur_pm.sequence
+                   AND prev.status <> '완료'
+               )
+             )
+        )
+        SELECT
+          CAST(COUNT(*) FILTER (
+            WHERE status IN ('진행중', '지연주의')
+               OR CAST(completed_at AS date) = CAST(:base_date AS date)
+          ) AS integer) AS active_count,
+          CAST(COUNT(*) AS integer) AS total_count
+        FROM today_targets
+        """,
+        {"base_date": base_date},
+    )
+    active_count = row["active_count"]
+    total_count = row["total_count"]
+    utilization_rate = round(active_count / total_count * 100, 1) if total_count else 0
 
     return {
-        "utilization_rate": round(
-            sum(item["running_hours"] for item in equipments) / planned_hours * 100,
-            1,
-        ),
-        "equipments": equipments,
+        "utilization_rate": utilization_rate,
+        "equipments": [
+            {
+                "name": "판금·절곡",
+                "active_count": active_count,
+                "total_count": total_count,
+                "utilization_rate": utilization_rate,
+            }
+        ],
     }
 
 

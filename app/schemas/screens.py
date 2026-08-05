@@ -19,8 +19,8 @@ class DashboardSummary(BaseModel):
 
 class EquipmentUtilizationItem(BaseModel):
     name: str
-    running_hours: Decimal
-    planned_hours: Decimal
+    active_count: int
+    total_count: int
     utilization_rate: Decimal
 
 
