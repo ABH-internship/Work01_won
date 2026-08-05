@@ -139,22 +139,19 @@ tr:last-child td{border-bottom:none}
 .trace-tools .btn{padding:7px 12px;font-size:12px}
 .trace-head{font-size:12.5px;color:var(--mut);margin-bottom:10px}
 .timeline{list-style:none;border-top:1px solid rgba(42,50,60,.7)}
-.timeline li{display:grid;grid-template-columns:118px 62px 132px 1fr;gap:8px;align-items:center;padding:7px 2px;border-bottom:1px solid rgba(42,50,60,.6);font-size:12.5px}
+.timeline li{display:grid;grid-template-columns:118px 62px 70px 132px 1fr;gap:8px;align-items:center;padding:7px 2px;border-bottom:1px solid rgba(42,50,60,.6);font-size:12.5px}
 .timeline .tm{font-family:'IBM Plex Mono',monospace;color:var(--dim);white-space:nowrap}
 .timeline .tp{font-family:'IBM Plex Mono',monospace;font-size:10.5px;border-radius:3px;padding:2px 6px;text-align:center;height:22px}
-.timeline .tp.info{background:rgba(76,141,216,.14);color:var(--blue)}
-.timeline .tp.warning{background:rgba(233,181,11,.14);color:var(--yellow)}
-.timeline .tp.error{background:rgba(224,91,65,.14);color:var(--red)}
-.timeline .tp.order{background:rgba(76,141,216,.14);color:var(--blue)}
-.timeline .tp.unit{background:rgba(154,164,174,.16);color:#BAC3CC}
-.timeline .tp.material{background:rgba(233,181,11,.14);color:var(--yellow)}
-.timeline .tp.process{background:rgba(63,191,127,.14);color:var(--green)}
-.timeline .tp.inspection{background:rgba(224,91,65,.14);color:var(--red)}
-.timeline .tp.test{background:rgba(141,107,255,.16);color:#B9A7FF}
-.timeline .tp.event{background:rgba(76,141,216,.14);color:var(--blue)}
+.timeline .tp{background:rgba(154,164,174,.12);color:#BAC3CC;border:1px solid rgba(154,164,174,.18)}
+.timeline .state{font-size:10.5px;border-radius:3px;padding:2px 6px;text-align:center;height:22px;font-weight:500;white-space:nowrap}
+.timeline .state.ok{background:rgba(63,191,127,.14);color:var(--green)}
+.timeline .state.fail{background:rgba(224,91,65,.14);color:var(--red)}
+.timeline .state.warn{background:rgba(233,181,11,.14);color:var(--yellow)}
+.timeline .state.run{background:rgba(76,141,216,.14);color:var(--blue)}
+.timeline .state.wait{background:rgba(92,103,115,.2);color:var(--mut)}
 .timeline b{font-size:12.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .timeline p{color:var(--ink);font-size:12.5px;font-weight:400;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-@media(max-width:720px){.timeline li{grid-template-columns:92px 58px 1fr}.timeline p{grid-column:1 / -1}.timeline .tp{width:max-content}}
+@media(max-width:720px){.timeline li{grid-template-columns:92px 58px 64px 1fr}.timeline p{grid-column:1 / -1}.timeline .tp,.timeline .state{width:max-content}}
 
 /* ── 효과 탭 ── */
 .ba{display:grid;grid-template-columns:1fr 46px 1fr;gap:10px;align-items:stretch;margin-bottom:10px}
@@ -303,7 +300,7 @@ footer{border-top:1px solid var(--line);color:var(--dim);font-size:11.5px;paddin
         <div class="grid g3" style="margin-top:12px">
           <div class="kpi"><div class="lb">금일 검사</div><div class="v" id="ai-n">47<small> 면</small></div></div>
           <div class="kpi"><div class="lb">검출</div><div class="v" id="ai-d">3<small> 건</small></div></div>
-          <div class="kpi"><div class="lb">평균 판독</div><div class="v">1.8<small> 초</small></div></div>
+          <div class="kpi"><div class="lb">평균 판독</div><div class="v" id="ai-read">1.8<small> 초</small></div></div>
         </div>
         <p style="margin-top:10px;font-size:12px;color:var(--dim)">※ 출하 전 오결선 1건은 현장에서 재방문·크레인 재작업 1건입니다. 검출 시점이 곧 비용입니다.</p>
       </div>
@@ -462,14 +459,13 @@ footer{border-top:1px solid var(--line);color:var(--dim);font-size:11.5px;paddin
     return 'ok';
   }
 
-  function timelineTypeClass(type){
-    if(type==='수주') return 'order';
-    if(type==='호기') return 'unit';
-    if(type==='자재') return 'material';
-    if(type==='공정') return 'process';
-    if(type==='검사') return 'inspection';
-    if(type==='시험') return 'test';
-    return 'event';
+  function timelineStateClass(label,severity){
+    if(label==='PASS'||label==='성공'||label==='완료'||label==='등록'||label==='배정') return 'ok';
+    if(label==='FAIL'||label==='실패') return 'fail';
+    if(label==='지연'||label==='지연주의'||label==='재작업' || severity==='warning') return 'warn';
+    if(label==='진행중') return 'run';
+    if(label==='대기') return 'wait';
+    return severity==='error'?'fail':'ok';
   }
 
   function setTrend(id,value,suffix){
@@ -541,6 +537,16 @@ footer{border-top:1px solid var(--line);color:var(--dim);font-size:11.5px;paddin
     }).catch(console.warn);
 
     api('/api/events/recent?limit=8').then(renderEvents).catch(console.warn);
+  }
+
+  function loadAiInspectionSummary(){
+    api('/api/ai-inspections/summary').then(function(row){
+      aiN=Number(row.today_count || 0);
+      aiD=Number(row.detection_count || 0);
+      document.getElementById('ai-n').innerHTML=aiN+'<small> 면</small>';
+      document.getElementById('ai-d').innerHTML=aiD+'<small> 건</small>';
+      document.getElementById('ai-read').innerHTML=Number(row.average_read_seconds || 0).toFixed(2)+'<small> 초</small>';
+    }).catch(console.warn);
   }
 
   function loadProgress(){
@@ -619,12 +625,12 @@ footer{border-top:1px solid var(--line);color:var(--dim);font-size:11.5px;paddin
       head.innerHTML='<span class="mono">'+esc(row.unit_no)+'</span> · '+esc(row.item_name)+' · '+esc(row.customer_name)+' · 납기 <span class="mono">'+fmtDate(row.due_date)+'</span>';
       timeline.innerHTML='';
       if(!row.timeline || !row.timeline.length){
-        timeline.innerHTML='<li><span class="tm">-</span><span class="tp info">정보</span><b>이력 없음</b><p>표시할 이력이 없습니다.</p></li>';
+        timeline.innerHTML='<li><span class="tm">-</span><span class="tp">정보</span><span class="state wait">대기</span><b>이력 없음</b><p>표시할 이력이 없습니다.</p></li>';
         return;
       }
       row.timeline.forEach(function(item){
-        var typeClass=timelineTypeClass(item.event_type);
-        timeline.innerHTML+='<li><span class="tm">'+fmtDateTime(item.occurred_at)+'</span><span class="tp '+typeClass+'">'+esc(item.event_type)+'</span><b>'+esc(item.title)+'</b><p>'+esc(item.message)+'</p></li>';
+        var stateClass=timelineStateClass(item.status_label,item.severity);
+        timeline.innerHTML+='<li><span class="tm">'+fmtDateTime(item.occurred_at)+'</span><span class="tp">'+esc(item.event_type)+'</span><span class="state '+stateClass+'">'+esc(item.status_label)+'</span><b>'+esc(item.title)+'</b><p>'+esc(item.message)+'</p></li>';
       });
     }).catch(console.warn);
   }
@@ -640,11 +646,13 @@ footer{border-top:1px solid var(--line);color:var(--dim);font-size:11.5px;paddin
   loadProgress();
   loadMaterials();
   loadQuality();
+  loadAiInspectionSummary();
   setInterval(function(){
     loadDashboard();
     loadProgress();
     loadMaterials();
     loadQuality();
+    loadAiInspectionSummary();
   },30000);
 
   // 단자대 그리기
@@ -660,7 +668,7 @@ footer{border-top:1px solid var(--line);color:var(--dim);font-size:11.5px;paddin
       det=document.getElementById('detbox'),okb=document.getElementById('okbox'),
       scan=document.getElementById('scan'),viewer=document.getElementById('viewer'),
       bad=document.getElementById('badwire');
-  var aiN=47,aiD=3,timer=null;
+  var aiN=0,aiD=0,timer=null;
   function reset(){
     if(timer){clearInterval(timer);timer=null;}
     det.setAttribute('opacity',0);okb.setAttribute('opacity',0);
@@ -682,8 +690,8 @@ footer{border-top:1px solid var(--line);color:var(--dim);font-size:11.5px;paddin
         confidence:97.2,
         finding:'단자 4열 · 배선 경로 상이'
       })
-      }).then(function(){
-        return unitNo;
+      }).then(function(response){
+        return {unitNo:unitNo, readSeconds:Number(response.data && response.data.read_seconds || 0)};
       });
     }
     return request('DN-2607-014').catch(function(){
@@ -700,17 +708,17 @@ footer{border-top:1px solid var(--line);color:var(--dim);font-size:11.5px;paddin
         clearInterval(timer);timer=null;scan.style.opacity=0;
         det.setAttribute('opacity',1);okb.setAttribute('opacity',1);
         bad.setAttribute('stroke','#E05B41');
-        aiN++;aiD++;
-        document.getElementById('ai-n').innerHTML=aiN+'<small> 면</small>';
-        document.getElementById('ai-d').innerHTML=aiD+'<small> 건</small>';
         res.innerHTML='<li><span>단자 4열 · 배선 경로 상이 (도면 Rev.C 대비)</span><b style="color:var(--red)">오결선 의심</b><span class="conf">97.2%</span></li>'
           +'<li><span>단자 1~3열 · 체결·경로 정상</span><b style="color:var(--green)">PASS</b><span class="conf">99.1%</span></li>'
           +'<li><span>압착단자 누락 검사</span><b style="color:var(--green)">PASS</b><span class="conf">98.4%</span></li>';
-        saveMockInspection().then(function(unitNo){
-          msg.textContent='판독 완료 (1.9초) — 결과가 호기 '+unitNo+' 품질 이력에 자동 저장되었습니다.';
+        saveMockInspection().then(function(result){
+          var seconds=result.readSeconds ? result.readSeconds.toFixed(1) : '0.0';
+          msg.textContent='판독 완료 ('+seconds+'초) — 결과가 호기 '+result.unitNo+' 품질 이력에 자동 저장되었습니다.';
+          loadAiInspectionSummary();
+          loadTrace(result.unitNo);
         }).catch(function(error){
           console.warn(error);
-          msg.textContent='판독 완료 (1.9초) — 결과 저장은 실패했습니다. API 상태를 확인해 주세요.';
+          msg.textContent='판독 완료 — 결과 저장은 실패했습니다. API 상태를 확인해 주세요.';
         });
         btn.disabled=false;
       }

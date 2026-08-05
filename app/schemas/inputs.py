@@ -93,6 +93,7 @@ class AiInspectionInput(BaseModel):
     result: QualityResult
     confidence: Decimal | None = None
     finding: str | None = None
+    read_seconds: Decimal | None = None
     inspected_at: datetime | None = None
 
 

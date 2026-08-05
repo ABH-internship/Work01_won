@@ -78,6 +78,18 @@ class AiInspectionSummary(BaseModel):
     today_count: int
     detection_count: int
     average_confidence: Decimal | None
+    average_read_seconds: Decimal
+
+
+class MockAiInspectionData(BaseModel):
+    id: int
+    read_seconds: Decimal
+
+
+class MockAiInspectionResponse(BaseModel):
+    code: str
+    message: str
+    data: MockAiInspectionData
 
 
 class MockAiInspectionInput(BaseModel):
@@ -95,6 +107,7 @@ class AiInspectionItem(BaseModel):
     result: str
     confidence: Decimal | None
     finding: str | None
+    read_seconds: Decimal | None
     inspected_at: datetime
 
 
@@ -152,6 +165,7 @@ class TraceTimelineItem(BaseModel):
     title: str
     message: str
     severity: str
+    status_label: str
 
 
 class TraceResponse(BaseModel):

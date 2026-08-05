@@ -73,7 +73,7 @@ def seed(base_url: str, base_date: date, reset: bool) -> None:
     seed_events(client, units, base_date)
 
     print("Seed data created.")
-    print("customers=7 quotes=10 orders=16 units=28 process_masters=8 unit_processes=224")
+    print("customers=7 quotes=10 orders=16 units=30 process_masters=8 unit_processes=240")
     print("materials=12 inventories=24 order_materials=71 quote_materials=40")
     print("ai_inspections=16 tests=36 events=20")
 
@@ -161,7 +161,7 @@ def seed_orders(client: ApiClient, customers: list[int], quotes: list[int], base
 
 
 def seed_units(client: ApiClient, orders: list[int]) -> list[int]:
-    unit_counts = [2, 1, 3, 2, 2, 1, 2, 1, 2, 1, 1, 4, 2, 1, 2, 1]
+    unit_counts = [2, 1, 3, 2, 2, 1, 2, 1, 2, 1, 1, 4, 2, 1, 2, 3]
     statuses = [
         "진행중",
         "지연주의",
@@ -191,6 +191,8 @@ def seed_units(client: ApiClient, orders: list[int]) -> list[int]:
         "완료",
         "완료",
         "완료",
+        "완료",
+        "완료",
     ]
     units: list[int] = []
     unit_index = 0
@@ -204,7 +206,11 @@ def seed_units(client: ApiClient, orders: list[int]) -> list[int]:
                         "/api/units",
                         {
                             "order_id": orders[order_index],
-                            "unit_no": f"DN-2608-{unit_index:03d}",
+                            "unit_no": (
+                                f"DN-2607-{unit_index + 10:03d}"
+                                if unit_index <= 10
+                                else f"DN-2608-{unit_index - 10:03d}"
+                            ),
                             "item_detail": f"{unit_index}호기",
                             "status": statuses[unit_index - 1],
                         },
@@ -238,7 +244,7 @@ def seed_process_masters(client: ApiClient) -> list[int]:
 
 
 def seed_unit_processes(client: ApiClient, units: list[int], processes: list[int], base_date: date) -> None:
-    completion_by_unit = [2, 1, 1, 4, 3, 0, 0, 2, 1, 8, 5, 4, 0, 2, 3, 5, 8, 0, 0, 1, 2, 0, 8, 8, 8, 8, 8, 8]
+    completion_by_unit = [2, 1, 1, 4, 3, 0, 0, 2, 1, 8, 5, 4, 0, 2, 3, 5, 8, 0, 0, 1, 2, 0, 8, 8, 8, 8, 8, 8, 8, 8]
     warning_units = {2, 3, 8, 9, 14, 22}
     rework_pairs = {(2, 3), (11, 6), (16, 6), (17, 7)}
     week_start = base_date - timedelta(days=base_date.weekday())
@@ -249,6 +255,8 @@ def seed_unit_processes(client: ApiClient, units: list[int], processes: list[int
         26: date(2026, 7, 20),
         27: date(2026, 7, 20),
         28: date(2026, 7, 30),
+        29: date(2026, 7, 30),
+        30: date(2026, 7, 30),
     }
 
     for unit_index, unit_id in enumerate(units, start=1):
@@ -426,6 +434,26 @@ def seed_ai_inspections(client: ApiClient, units: list[int], base_date: date) ->
         "배선 색상 기준 불일치",
         None,
     ]
+    inspection_times = [
+        datetime.combine(base_date, time(9, 10)),
+        datetime.combine(base_date, time(10, 25)),
+        datetime.combine(base_date, time(11, 40)),
+        datetime.combine(base_date, time(13, 20)),
+        datetime.combine(base_date, time(15, 5)),
+    ] + [
+        datetime.combine(base_date - timedelta(days=1), time(9, 30)) + timedelta(minutes=index * 45)
+        for index in range(5)
+    ] + [
+        datetime.combine(base_date - timedelta(days=2), time(10, 10)) + timedelta(minutes=index * 50)
+        for index in range(4)
+    ] + [
+        datetime.combine(base_date - timedelta(days=3), time(11, 0)) + timedelta(minutes=index * 60)
+        for index in range(2)
+    ]
+    read_seconds = [
+        "1.6", "1.9", "1.7", "2.0", "1.8", "1.5", "1.7", "1.9",
+        "1.6", "1.8", "1.7", "1.9", "1.5", "1.8", "2.0", "1.6",
+    ]
 
     for index, unit_id in enumerate(units[:16]):
         result = "FAIL" if findings[index] else "PASS"
@@ -437,7 +465,8 @@ def seed_ai_inspections(client: ApiClient, units: list[int], base_date: date) ->
                 "result": result,
                 "confidence": "96.20" if result == "PASS" else "98.10",
                 "finding": findings[index],
-                "inspected_at": as_datetime(datetime.combine(base_date, time(10, 0)) - timedelta(hours=index * 3)),
+                "read_seconds": read_seconds[index],
+                "inspected_at": as_datetime(inspection_times[index]),
             },
         )
 

@@ -252,10 +252,10 @@ def create_ai_inspection(payload: AiInspectionInput, db: Session = Depends(get_d
         db,
         """
         INSERT INTO ai_inspections (
-          unit_id, inspection_type, result, confidence, finding, inspected_at
+          unit_id, inspection_type, result, confidence, finding, read_seconds, inspected_at
         )
         VALUES (
-          :unit_id, :inspection_type, :result, :confidence, :finding, COALESCE(:inspected_at, now())
+          :unit_id, :inspection_type, :result, :confidence, :finding, :read_seconds, COALESCE(:inspected_at, now())
         )
         RETURNING id
         """,
