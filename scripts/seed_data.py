@@ -75,7 +75,7 @@ def seed(base_url: str, base_date: date, reset: bool) -> None:
     print("Seed data created.")
     print("customers=7 quotes=10 orders=16 units=30 process_masters=8 unit_processes=240")
     print("materials=12 inventories=24 order_materials=71 quote_materials=40")
-    print("ai_inspections=16 tests=36 events=20")
+    print("ai_inspections=16 tests=36 events=12")
 
 
 def seed_customers(client: ApiClient) -> list[int]:
@@ -134,13 +134,13 @@ def seed_orders(client: ApiClient, customers: list[int], quotes: list[int], base
         (6, None, "인버터 판넬", 2, 11, "진행중"),
         (0, None, "계장 제어반", 1, 20, "대기"),
         (1, None, "모터 제어반", 2, 13, "지연주의"),
-        (2, None, "현장 조작반", 1, 16, "진행중"),
+        (2, None, "현장 조작반", 1, -2, "완료"),
         (3, None, "분전반", 1, 2, "완료"),
         (4, None, "저압 배전반", 2, 24, "대기"),
         (0, None, "고압 배전반", 2, -25, "완료"),
         (1, None, "MCC 제어반", 1, -20, "완료"),
         (2, None, "분전반", 2, -15, "완료"),
-        (3, None, "자동제어반", 1, -8, "완료"),
+        (3, None, "자동제어반", 1, 1, "완료"),
     ]
     return [
         created_id(
@@ -164,8 +164,8 @@ def seed_units(client: ApiClient, orders: list[int]) -> list[int]:
     unit_counts = [2, 1, 3, 2, 2, 1, 2, 1, 2, 1, 1, 4, 2, 1, 2, 3]
     statuses = [
         "진행중",
-        "지연주의",
-        "지연주의",
+        "진행중",
+        "진행중",
         "진행중",
         "진행중",
         "대기",
@@ -244,23 +244,26 @@ def seed_process_masters(client: ApiClient) -> list[int]:
 
 
 def seed_unit_processes(client: ApiClient, units: list[int], processes: list[int], base_date: date) -> None:
-    completion_by_unit = [2, 1, 1, 4, 3, 0, 0, 2, 1, 8, 5, 4, 0, 2, 3, 5, 8, 0, 0, 1, 2, 0, 8, 8, 8, 8, 8, 8, 8, 8]
-    warning_units = {2, 3, 8, 9, 14, 22}
+    completion_by_unit = [2, 2, 1, 4, 3, 0, 0, 2, 1, 8, 5, 4, 0, 2, 3, 5, 8, 0, 0, 1, 2, 0, 8, 8, 8, 8, 8, 8, 8, 8]
+    active_current_units = {1, 4, 5, 11, 14, 16}
+    warning_units = {14}
+    bending_wait_units = {2}
     rework_pairs = {(2, 3), (11, 6), (16, 6), (17, 7)}
     week_start = base_date - timedelta(days=base_date.weekday())
     historical_completed_dates = {
         23: date(2026, 7, 10),
         24: date(2026, 7, 10),
         25: date(2026, 7, 18),
-        26: date(2026, 7, 20),
+        26: date(2026, 7, 23),
         27: date(2026, 7, 20),
-        28: date(2026, 7, 30),
-        29: date(2026, 7, 30),
-        30: date(2026, 7, 30),
+        28: date(2026, 8, 4),
+        29: date(2026, 8, 4),
+        30: date(2026, 8, 4),
     }
 
     for unit_index, unit_id in enumerate(units, start=1):
         completed_count = completion_by_unit[unit_index - 1]
+        last_completed_at = None
 
         for process_index, process_id in enumerate(processes, start=1):
             started_at = None
@@ -275,10 +278,20 @@ def seed_unit_processes(client: ApiClient, units: list[int], processes: list[int
                     work_date = week_start + timedelta(days=(unit_index + process_index) % 3)
                 started_at = datetime.combine(work_date, time(8 + (process_index % 3), 30))
                 completed_at = started_at + timedelta(hours=4)
+                last_completed_at = completed_at
                 result_quantity = 2 + ((unit_index + process_index) % 4)
             elif process_index == completed_count + 1:
-                status = "지연주의" if unit_index in warning_units else "진행중"
-                started_at = datetime.combine(base_date - timedelta(days=1), time(9, 0))
+                if unit_index in bending_wait_units and process_index == 3:
+                    status = "대기"
+                elif unit_index not in active_current_units:
+                    status = "대기"
+                else:
+                    status = "지연주의" if unit_index in warning_units else "진행중"
+                    started_at = (
+                        last_completed_at + timedelta(hours=1)
+                        if last_completed_at
+                        else datetime.combine(base_date, time(9, 0))
+                    )
             else:
                 status = "대기"
 
@@ -319,18 +332,18 @@ def seed_materials(client: ApiClient) -> list[int]:
 
 def seed_inventories(client: ApiClient, materials: list[int], base_date: date) -> dict[int, list[int]]:
     stocks = [
-        (120, 80, 14, 8),
-        (160, 90, 21, 10),
-        (360, 240, 48, 28),
-        (500, 300, 60, 35),
-        (300, 180, 40, 23),
-        (1200, 700, 130, 60),
-        (1800, 1000, 170, 90),
-        (140, 80, 16, 9),
-        (240, 160, 44, 24),
-        (260, 140, 38, 19),
-        (50, 30, 5, 3),
-        (420, 260, 65, 35),
+        (120, 80, 18, 10),
+        (160, 90, 27, 13),
+        (360, 240, 62, 36),
+        (500, 300, 78, 46),
+        (300, 180, 52, 30),
+        (1200, 700, 169, 78),
+        (1800, 1000, 221, 117),
+        (140, 80, 21, 12),
+        (240, 160, 57, 31),
+        (260, 140, 49, 25),
+        (50, 30, 7, 4),
+        (420, 260, 85, 46),
     ]
     inventories: dict[int, list[int]] = {}
 
@@ -501,25 +514,17 @@ def seed_tests(client: ApiClient, units: list[int], base_date: date) -> None:
 
 def seed_events(client: ApiClient, units: list[int], base_date: date) -> None:
     rows = [
-        (0, "공정", "설계 승인 완료", "info"),
-        (1, "납기", "잔여 공정 대비 납기 여유 부족", "warning"),
+        (0, "납기", "잔여 공정 대비 납기 여유 부족", "warning"),
         (2, "자재", "차단기 입고 지연 가능성", "warning"),
-        (3, "검사", "배선 검사 PASS", "info"),
         (4, "자재", "외함 재고 부족으로 발주 필요", "warning"),
-        (5, "시험", "내전압 시험 완료", "info"),
-        (6, "공정", "배선 공정 시작", "info"),
         (7, "자재", "동부스바 LOT 배정 완료", "info"),
         (8, "납기", "지연 위험 호기 발생", "error"),
-        (9, "시험", "동작시험 PASS", "info"),
-        (10, "공정", "시험 공정 완료", "info"),
         (11, "검사", "단자 체결 토크 재확인 필요", "warning"),
         (12, "수주", "신규 호기 등록", "info"),
-        (13, "공정", "재작업 실적 발생", "warning"),
+        (13, "공정", "재작업 실적 확인", "warning"),
         (14, "자재", "전선 현재고 부족 예상", "warning"),
-        (15, "검사", "AI 배선검사 FAIL", "error"),
-        (16, "시험", "성적서 저장 완료", "info"),
-        (17, "공정", "설계 확정 후 자재 발주 대기", "info"),
-        (18, "수주", "납기 변경 검토 필요", "warning"),
+        (17, "수주", "납기 변경 검토 필요", "warning"),
+        (18, "자재", "자재 발주 요청 대기", "info"),
         (19, "시스템", "일일 집계 갱신", "info"),
     ]
 
