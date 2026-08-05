@@ -61,6 +61,12 @@ class ProgressUnitItem(BaseModel):
     progress_rate: Decimal
     current_process: str | None
     status: str
+    remaining_standard_days: Decimal
+    safety_buffer_days: Decimal
+    required_days: Decimal
+    buffer_days: Decimal
+    risk_status: str
+    display_status: str
 
 
 class DueRisk(BaseModel):

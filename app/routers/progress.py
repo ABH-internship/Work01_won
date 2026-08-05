@@ -53,6 +53,20 @@ def get_progress_units(
           WHERE u.status = '완료'
             AND up.status = '완료'
           ORDER BY u.id, pm.sequence DESC
+        ),
+        due_risk AS (
+          SELECT
+            u.id AS unit_id,
+            COALESCE(SUM(pm.standard_days) FILTER (WHERE up.status <> '완료'), 0) AS remaining_standard_days,
+            1::numeric AS safety_buffer_days,
+            COALESCE(SUM(pm.standard_days) FILTER (WHERE up.status <> '완료'), 0) + 1 AS required_days,
+            (o.due_date - CAST(:base_date AS date))
+              - (COALESCE(SUM(pm.standard_days) FILTER (WHERE up.status <> '완료'), 0) + 1) AS buffer_days
+          FROM units u
+          JOIN orders o ON o.id = u.order_id
+          LEFT JOIN unit_processes up ON up.unit_id = u.id
+          LEFT JOIN process_masters pm ON pm.id = up.process_master_id
+          GROUP BY u.id, o.due_date
         )
         SELECT
           u.unit_no,
@@ -62,13 +76,29 @@ def get_progress_units(
           CAST(o.due_date - CAST(:base_date AS date) AS integer) AS days_until_due,
           COALESCE(p.progress_rate, 0) AS progress_rate,
           COALESCE(np.process_name, lp.process_name) AS current_process,
-          u.status
+          u.status,
+          dr.remaining_standard_days,
+          dr.safety_buffer_days,
+          dr.required_days,
+          dr.buffer_days,
+          CASE
+            WHEN u.status = '완료' THEN '완료'
+            WHEN dr.buffer_days < 1 THEN '지연주의'
+            ELSE '정상'
+          END AS risk_status,
+          CASE
+            WHEN u.status = '완료' THEN '완료'
+            WHEN dr.buffer_days < 1 THEN '지연주의'
+            WHEN u.status IN ('대기', '자재발주중') THEN u.status
+            ELSE '정상'
+          END AS display_status
         FROM units u
         JOIN orders o ON o.id = u.order_id
         JOIN customers c ON c.id = o.customer_id
         LEFT JOIN progress p ON p.unit_id = u.id
         LEFT JOIN next_process np ON np.unit_id = u.id
         LEFT JOIN last_process lp ON lp.unit_id = u.id
+        JOIN due_risk dr ON dr.unit_id = u.id
         ORDER BY o.due_date, u.unit_no
         """,
         {"base_date": base_date},
@@ -104,7 +134,7 @@ def get_due_risk(
     buffer_days = row["days_until_due"] - required_days
     row["safety_buffer_days"] = safety_buffer_days
     row["buffer_days"] = buffer_days
-    row["status"] = "지연위험" if buffer_days < 1 else "정상"
+    row["status"] = "지연주의" if buffer_days < 1 else "정상"
     row["message"] = (
         f"잔여 표준 {row['remaining_standard_days']}일 + 여유 {safety_buffer_days}일, "
         f"납기까지 {row['days_until_due']}일 남았습니다."

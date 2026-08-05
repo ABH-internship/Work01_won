@@ -428,8 +428,8 @@ footer{border-top:1px solid var(--line);color:var(--dim);font-size:11.5px;paddin
   }
 
   function progressStatusLabel(row){
-    if(row.status==='지연주의') return row.status+' '+ddayLabel(row.days_until_due);
-    return row.status;
+    if(row.display_status==='지연주의') return row.display_status+' '+ddayLabel(row.days_until_due);
+    return row.display_status || row.status;
   }
 
   function fmtDateTime(value){
@@ -555,8 +555,9 @@ footer{border-top:1px solid var(--line);color:var(--dim);font-size:11.5px;paddin
       body.innerHTML='';
       rows.forEach(function(row){
         var progress=Number(row.progress_rate);
-        var chip=statusClass(row.status);
-        var bar=progressBarClass(row.status);
+        var status=row.display_status || row.status;
+        var chip=statusClass(status);
+        var bar=progressBarClass(status);
         body.innerHTML+='<tr><td class="mono">'+row.unit_no+'</td><td>'+row.item_name+'</td><td>'+row.customer_name+'</td><td class="mono">'+fmtDate(row.due_date)+'</td><td><div class="pbar"><i class="'+bar+'" style="width:'+progress+'%"></i></div></td><td>'+(row.current_process||'-')+'</td><td><span class="st-chip '+chip+'">'+progressStatusLabel(row)+'</span></td></tr>';
       });
     }).catch(console.warn);
