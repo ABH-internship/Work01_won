@@ -319,15 +319,20 @@ def get_weekly_output(
 
 
 @events_router.get("/recent", response_model=list[EventItem])
-def get_recent_events(limit: int = Query(10, ge=1, le=50), db: Session = Depends(get_db)) -> list[dict]:
+def get_recent_events(
+    limit: int = Query(10, ge=1, le=50),
+    base_date: date = Query(default_factory=default_base_date),
+    db: Session = Depends(get_db),
+) -> list[dict]:
     return fetch_all(
         db,
         """
         SELECT e.id, u.unit_no, e.event_type, e.message, e.severity, e.occurred_at
         FROM events e
         LEFT JOIN units u ON u.id = e.unit_id
+        WHERE e.occurred_at < CAST(:base_date AS date) + INTERVAL '1 day'
         ORDER BY e.occurred_at DESC
         LIMIT :limit
         """,
-        {"limit": limit},
+        {"limit": limit, "base_date": base_date},
     )

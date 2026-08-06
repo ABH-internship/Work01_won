@@ -4,7 +4,7 @@ from random import uniform
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
-from app.core.dates import default_base_date
+from app.core.dates import default_base_date, default_base_datetime
 from app.db.session import get_db
 from app.schemas.common import ApiResponse
 from app.schemas.screens import (
@@ -53,8 +53,8 @@ def run_mock_ai_inspection(payload: MockAiInspectionInput, db: Session = Depends
     response = insert_id(
         db,
         """
-        INSERT INTO ai_inspections (unit_id, inspection_type, result, confidence, finding, read_seconds)
-        VALUES (:unit_id, :inspection_type, :result, :confidence, :finding, :read_seconds)
+        INSERT INTO ai_inspections (unit_id, inspection_type, result, confidence, finding, read_seconds, inspected_at)
+        VALUES (:unit_id, :inspection_type, :result, :confidence, :finding, :read_seconds, :inspected_at)
         RETURNING id
         """,
         {
@@ -64,6 +64,7 @@ def run_mock_ai_inspection(payload: MockAiInspectionInput, db: Session = Depends
             "confidence": payload.confidence,
             "finding": payload.finding,
             "read_seconds": read_seconds,
+            "inspected_at": default_base_datetime(),
         },
         "Mock AI 검사 결과가 저장되었습니다.",
     )

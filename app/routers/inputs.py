@@ -5,7 +5,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.dates import default_base_date
+from app.core.dates import default_base_date, default_base_datetime
 from app.db.session import get_db
 from app.schemas.common import ApiResponse, QuoteApiResponse, QuoteIdData
 from app.schemas.inputs import (
@@ -113,13 +113,14 @@ def create_quote(
         db.execute(
             text(
                 """
-                INSERT INTO events (unit_id, event_type, message, severity)
-                VALUES (NULL, 'AI', :message, :severity)
+                INSERT INTO events (unit_id, event_type, message, severity, occurred_at)
+                VALUES (NULL, 'AI', :message, :severity, :occurred_at)
                 """
             ),
             {
                 "message": f"{payload.item_name} 견적 전환 확률 {conservative_probability * 100:.1f}% 산정",
                 "severity": "info" if conservative_probability >= 0.5 else "warning",
+                "occurred_at": default_base_datetime(),
             },
         )
         db.commit()
@@ -249,6 +250,9 @@ def create_quote_material(payload: QuoteMaterialInput, db: Session = Depends(get
 
 @router.post("/ai-inspections", status_code=status.HTTP_201_CREATED, response_model=ApiResponse)
 def create_ai_inspection(payload: AiInspectionInput, db: Session = Depends(get_db)) -> ApiResponse:
+    values = payload.model_dump()
+    values["inspected_at"] = values["inspected_at"] or default_base_datetime()
+
     return insert_id(
         db,
         """
@@ -256,17 +260,20 @@ def create_ai_inspection(payload: AiInspectionInput, db: Session = Depends(get_d
           unit_id, inspection_type, result, confidence, finding, read_seconds, inspected_at
         )
         VALUES (
-          :unit_id, :inspection_type, :result, :confidence, :finding, :read_seconds, COALESCE(:inspected_at, now())
+          :unit_id, :inspection_type, :result, :confidence, :finding, :read_seconds, :inspected_at
         )
         RETURNING id
         """,
-        payload.model_dump(),
+        values,
         "AI검사 결과가 입력되었습니다.",
     )
 
 
 @router.post("/tests", status_code=status.HTTP_201_CREATED, response_model=ApiResponse)
 def create_test(payload: TestInput, db: Session = Depends(get_db)) -> ApiResponse:
+    values = payload.model_dump()
+    values["tested_at"] = values["tested_at"] or default_base_datetime()
+
     return insert_id(
         db,
         """
@@ -274,17 +281,20 @@ def create_test(payload: TestInput, db: Session = Depends(get_db)) -> ApiRespons
           unit_id, test_item, measured_value, criteria, result, tester, tested_at
         )
         VALUES (
-          :unit_id, :test_item, :measured_value, :criteria, :result, :tester, COALESCE(:tested_at, now())
+          :unit_id, :test_item, :measured_value, :criteria, :result, :tester, :tested_at
         )
         RETURNING id
         """,
-        payload.model_dump(),
+        values,
         "시험성적이 입력되었습니다.",
     )
 
 
 @router.post("/events", status_code=status.HTTP_201_CREATED, response_model=ApiResponse)
 def create_event(payload: EventInput, db: Session = Depends(get_db)) -> ApiResponse:
+    values = payload.model_dump()
+    values["occurred_at"] = values["occurred_at"] or default_base_datetime()
+
     return insert_id(
         db,
         """
@@ -292,10 +302,10 @@ def create_event(payload: EventInput, db: Session = Depends(get_db)) -> ApiRespo
           unit_id, event_type, message, severity, occurred_at
         )
         VALUES (
-          :unit_id, :event_type, :message, :severity, COALESCE(:occurred_at, now())
+          :unit_id, :event_type, :message, :severity, :occurred_at
         )
         RETURNING id
         """,
-        payload.model_dump(),
+        values,
         "이벤트가 입력되었습니다.",
     )

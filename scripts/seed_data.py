@@ -9,7 +9,6 @@ from urllib.request import Request, urlopen
 
 
 DEFAULT_BASE_URL = "http://127.0.0.1:8000"
-DEFAULT_BASE_DATE = date(2026, 8, 5)
 
 
 class ApiClient:
@@ -55,29 +54,30 @@ def as_datetime(value: datetime) -> str:
     return value.isoformat()
 
 
-def seed(base_url: str, base_date: date, reset: bool) -> None:
+def seed(base_url: str, base_date: date | None, reset: bool) -> None:
     client = ApiClient(base_url)
     health = client.get("/api/health")
     app_env = str(health.get("app_env", "")).lower()
     if app_env != "development":
         raise RuntimeError(f"Seed data can run only when APP_ENV=development. Current APP_ENV={app_env or 'unknown'}")
+    effective_base_date = base_date or date.fromisoformat(str(health["base_date"]))
 
     if reset:
         client.post("/api/dev/reset")
 
     customers = seed_customers(client)
-    quotes = seed_quotes(client, customers, base_date)
-    orders = seed_orders(client, customers, quotes, base_date)
+    quotes = seed_quotes(client, customers, effective_base_date)
+    orders = seed_orders(client, customers, quotes, effective_base_date)
     units = seed_units(client, orders)
     processes = seed_process_masters(client)
-    seed_unit_processes(client, units, processes, base_date)
+    seed_unit_processes(client, units, processes, effective_base_date)
     materials = seed_materials(client)
-    inventories = seed_inventories(client, materials, base_date)
+    inventories = seed_inventories(client, materials, effective_base_date)
     seed_order_materials(client, orders, materials, inventories)
     seed_quote_materials(client, quotes, materials)
-    seed_ai_inspections(client, units, base_date)
-    seed_tests(client, units, base_date)
-    seed_events(client, units, base_date)
+    seed_ai_inspections(client, units, effective_base_date)
+    seed_tests(client, units, effective_base_date)
+    seed_events(client, units, effective_base_date)
 
     print("Seed data created.")
     print("customers=7 quotes=10 orders=16 units=30 process_masters=8 unit_processes=240")
@@ -551,14 +551,15 @@ def seed_events(client: ApiClient, units: list[int], base_date: date) -> None:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Create deterministic demo data through the FastAPI input API.")
     parser.add_argument("--base-url", default=DEFAULT_BASE_URL)
-    parser.add_argument("--base-date", default=DEFAULT_BASE_DATE.isoformat())
+    parser.add_argument("--base-date", default=None)
     parser.add_argument("--no-reset", action="store_true")
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
-    seed(args.base_url, date.fromisoformat(args.base_date), reset=not args.no_reset)
+    base_date = date.fromisoformat(args.base_date) if args.base_date else None
+    seed(args.base_url, base_date, reset=not args.no_reset)
 
 
 if __name__ == "__main__":
