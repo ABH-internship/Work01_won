@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo
 DEFAULT_BASE_URL = "http://127.0.0.1:8000"
 DEFAULT_TIMEOUT_SECONDS = 60
 KST = ZoneInfo("Asia/Seoul")
+MAX_BASE_TIME = time(9, 0)
 
 
 class ApiClient:
@@ -62,6 +63,13 @@ def as_datetime(value: datetime) -> str:
     if value.tzinfo is None:
         value = value.replace(tzinfo=KST)
     return value.isoformat()
+
+
+def cap_base_datetime(value: datetime, base_date: date) -> datetime:
+    max_value = datetime.combine(base_date, MAX_BASE_TIME)
+    if value.date() == base_date and value > max_value:
+        return max_value
+    return value
 
 
 def seed(base_url: str, base_date: date | None, reset: bool) -> None:
@@ -293,8 +301,8 @@ def seed_unit_processes(client: ApiClient, units: list[int], processes: list[int
                     work_date = historical_completed_dates[unit_index] - timedelta(days=completed_count - process_index)
                 else:
                     work_date = week_start + timedelta(days=(unit_index + process_index) % 3)
-                started_at = datetime.combine(work_date, time(8 + (process_index % 3), 30))
-                completed_at = started_at + timedelta(hours=4)
+                started_at = cap_base_datetime(datetime.combine(work_date, time(8 + (process_index % 3), 30)), base_date)
+                completed_at = cap_base_datetime(started_at + timedelta(hours=4), base_date)
                 last_completed_at = completed_at
                 result_quantity = 2 + ((unit_index + process_index) % 4)
             elif process_index == completed_count + 1:
@@ -309,6 +317,7 @@ def seed_unit_processes(client: ApiClient, units: list[int], processes: list[int
                         if last_completed_at
                         else datetime.combine(base_date, time(9, 0))
                     )
+                    started_at = cap_base_datetime(started_at, base_date)
             else:
                 status = "대기"
 
@@ -465,11 +474,11 @@ def seed_ai_inspections(client: ApiClient, units: list[int], base_date: date) ->
         None,
     ]
     inspection_times = [
-        datetime.combine(base_date, time(9, 10)),
-        datetime.combine(base_date, time(10, 25)),
-        datetime.combine(base_date, time(11, 40)),
-        datetime.combine(base_date, time(13, 20)),
-        datetime.combine(base_date, time(15, 5)),
+        datetime.combine(base_date, time(8, 10)),
+        datetime.combine(base_date, time(8, 25)),
+        datetime.combine(base_date, time(8, 40)),
+        datetime.combine(base_date, time(8, 50)),
+        datetime.combine(base_date, time(9, 0)),
     ] + [
         datetime.combine(base_date - timedelta(days=1), time(9, 30)) + timedelta(minutes=index * 45)
         for index in range(5)
@@ -496,7 +505,7 @@ def seed_ai_inspections(client: ApiClient, units: list[int], base_date: date) ->
                 "confidence": "96.20" if result == "PASS" else "98.10",
                 "finding": findings[index],
                 "read_seconds": read_seconds[index],
-                "inspected_at": as_datetime(inspection_times[index]),
+                "inspected_at": as_datetime(cap_base_datetime(inspection_times[index], base_date)),
             },
         )
 
@@ -522,8 +531,11 @@ def seed_tests(client: ApiClient, units: list[int], base_date: date) -> None:
                     "result": "FAIL" if fail else "PASS",
                     "tester": ["김민수", "이서연", "박지훈"][test_index],
                     "tested_at": as_datetime(
-                        datetime.combine(base_date - timedelta(days=unit_index % 5), time(14, 0))
-                        + timedelta(minutes=test_index * 20)
+                        cap_base_datetime(
+                            datetime.combine(base_date - timedelta(days=unit_index % 5), time(14, 0))
+                            + timedelta(minutes=test_index * 20),
+                            base_date,
+                        )
                     ),
                 },
             )
@@ -553,7 +565,9 @@ def seed_events(client: ApiClient, units: list[int], base_date: date) -> None:
                 "event_type": event_type,
                 "message": message,
                 "severity": severity,
-                "occurred_at": as_datetime(datetime.combine(base_date, time(16, 30)) - timedelta(minutes=index * 18)),
+                "occurred_at": as_datetime(
+                    datetime.combine(base_date, time(9, 0)) - timedelta(minutes=index * 8)
+                ),
             },
         )
 
