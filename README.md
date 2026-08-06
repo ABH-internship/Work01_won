@@ -51,7 +51,7 @@ BASE_DATE=2026-08-05
 ```
 
 `APP_ENV=development`에서는 `BASE_DATE`가 화면과 API의 기본 기준일로 사용됩니다.  
-데모 데이터는 이 기준일에 맞춰 생성되며, `seed_data.py`는 서버가 development 환경이 아니면 실행을 중단합니다.
+`seed_data.py`는 서버가 development 환경이 아니면 실행을 중단합니다.
 
 PostgreSQL 실행:
 
