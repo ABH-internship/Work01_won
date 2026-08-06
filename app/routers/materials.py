@@ -3,6 +3,7 @@ from datetime import date
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
+from app.core.dates import default_base_date
 from app.db.session import get_db
 from app.schemas.screens import InventoryItem, MaterialRequirementItem
 from app.services.read import fetch_all
@@ -12,7 +13,7 @@ router = APIRouter(prefix="/materials", tags=["materials"])
 
 @router.get("/requirements", response_model=list[MaterialRequirementItem])
 def get_material_requirements(
-    base_date: date = Query(default_factory=date.today),
+    base_date: date = Query(default_factory=default_base_date),
     db: Session = Depends(get_db),
 ) -> list[dict]:
     rows = fetch_all(

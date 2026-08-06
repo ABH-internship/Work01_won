@@ -3,6 +3,7 @@ from datetime import date
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
+from app.core.dates import default_base_date
 from app.db.session import get_db
 from app.schemas.screens import (
     DashboardSummary,
@@ -19,7 +20,7 @@ events_router = APIRouter(prefix="/events", tags=["dashboard"])
 
 @router.get("/summary", response_model=DashboardSummary)
 def get_dashboard_summary(
-    base_date: date = Query(default_factory=date.today),
+    base_date: date = Query(default_factory=default_base_date),
     db: Session = Depends(get_db),
 ) -> dict:
     return fetch_one(
@@ -134,7 +135,7 @@ def get_dashboard_summary(
 
 @router.get("/equipment-utilization", response_model=EquipmentUtilization)
 def get_equipment_utilization(
-    base_date: date = Query(default_factory=date.today),
+    base_date: date = Query(default_factory=default_base_date),
     db: Session = Depends(get_db),
 ) -> dict:
     row = fetch_one(
@@ -295,7 +296,7 @@ def get_process_line(db: Session = Depends(get_db)) -> list[dict]:
 
 @router.get("/weekly-output", response_model=list[WeeklyOutputItem])
 def get_weekly_output(
-    base_date: date = Query(default_factory=date.today),
+    base_date: date = Query(default_factory=default_base_date),
     db: Session = Depends(get_db),
 ) -> list[dict]:
     return fetch_all(

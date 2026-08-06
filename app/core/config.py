@@ -1,6 +1,8 @@
 from functools import lru_cache
+from datetime import date
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -11,6 +13,7 @@ class Settings(BaseSettings):
     app_name: str = "Work01 API"
     app_env: str = "development"
     api_prefix: str = "/api"
+    base_date_override: date | None = Field(default=None, validation_alias="BASE_DATE")
 
     postgres_db: str = "abh"
     postgres_user: str = "abh"
@@ -35,6 +38,13 @@ class Settings(BaseSettings):
             f"{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
         )
+
+    @property
+    def base_date(self) -> date:
+        if self.app_env.lower() == "development" and self.base_date_override:
+            return self.base_date_override
+
+        return date.today()
 
 
 @lru_cache

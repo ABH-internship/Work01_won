@@ -11,7 +11,7 @@ router = APIRouter(prefix="/dev", tags=["dev"])
 
 @router.post("/reset", response_model=MessageResponse)
 def reset_database(db: Session = Depends(get_db)) -> MessageResponse:
-    if settings.app_env != "development":
+    if settings.app_env.lower() != "development":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={"code": "FORBIDDEN", "message": "개발 환경에서만 실행할 수 있습니다."},

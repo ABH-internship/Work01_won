@@ -5,6 +5,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.dates import default_base_date
 from app.db.session import get_db
 from app.schemas.common import ApiResponse, QuoteApiResponse, QuoteIdData
 from app.schemas.inputs import (
@@ -59,7 +60,7 @@ def create_order(payload: OrderInput, db: Session = Depends(get_db)) -> ApiRespo
 @router.post("/quotes", status_code=status.HTTP_201_CREATED, response_model=QuoteApiResponse)
 def create_quote(
     payload: QuoteInput,
-    base_date: date = Query(default_factory=date.today),
+    base_date: date = Query(default_factory=default_base_date),
     db: Session = Depends(get_db),
 ) -> QuoteApiResponse:
     if not MODEL_PATH.exists():

@@ -3,6 +3,7 @@ from datetime import date
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
+from app.core.dates import default_base_date
 from app.db.session import get_db
 from app.schemas.screens import DueRisk, ProgressUnitItem
 from app.services.read import fetch_all, fetch_one
@@ -12,7 +13,7 @@ router = APIRouter(prefix="/progress", tags=["progress"])
 
 @router.get("/units", response_model=list[ProgressUnitItem])
 def get_progress_units(
-    base_date: date = Query(default_factory=date.today),
+    base_date: date = Query(default_factory=default_base_date),
     db: Session = Depends(get_db),
 ) -> list[dict]:
     return fetch_all(
@@ -108,7 +109,7 @@ def get_progress_units(
 @router.get("/due-risk/{unit_no}", response_model=DueRisk)
 def get_due_risk(
     unit_no: str,
-    base_date: date = Query(default_factory=date.today),
+    base_date: date = Query(default_factory=default_base_date),
     db: Session = Depends(get_db),
 ) -> dict:
     row = fetch_one(

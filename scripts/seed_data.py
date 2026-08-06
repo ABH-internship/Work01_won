@@ -19,8 +19,11 @@ class ApiClient:
     def post(self, path: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
         return self._request("POST", path, payload or {})
 
+    def get(self, path: str) -> dict[str, Any]:
+        return self._request("GET", path, {})
+
     def _request(self, method: str, path: str, payload: dict[str, Any]) -> dict[str, Any]:
-        data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        data = None if method == "GET" else json.dumps(payload, ensure_ascii=False).encode("utf-8")
         request = Request(
             f"{self.base_url}{path}",
             data=data,
@@ -54,6 +57,10 @@ def as_datetime(value: datetime) -> str:
 
 def seed(base_url: str, base_date: date, reset: bool) -> None:
     client = ApiClient(base_url)
+    health = client.get("/api/health")
+    app_env = str(health.get("app_env", "")).lower()
+    if app_env != "development":
+        raise RuntimeError(f"Seed data can run only when APP_ENV=development. Current APP_ENV={app_env or 'unknown'}")
 
     if reset:
         client.post("/api/dev/reset")
