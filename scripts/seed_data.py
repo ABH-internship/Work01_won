@@ -9,6 +9,7 @@ from urllib.request import Request, urlopen
 
 
 DEFAULT_BASE_URL = "http://127.0.0.1:8000"
+DEFAULT_TIMEOUT_SECONDS = 60
 
 
 class ApiClient:
@@ -31,11 +32,16 @@ class ApiClient:
         )
 
         try:
-            with urlopen(request, timeout=10) as response:
+            with urlopen(request, timeout=DEFAULT_TIMEOUT_SECONDS) as response:
                 body = response.read().decode("utf-8")
         except HTTPError as error:
             detail = error.read().decode("utf-8", errors="replace")
             raise RuntimeError(f"{method} {path} failed: {error.code} {detail} payload={payload}") from error
+        except TimeoutError as error:
+            raise RuntimeError(
+                f"{method} {path} timed out after {DEFAULT_TIMEOUT_SECONDS}s. "
+                "Check the API server log for the request that is still running or failed."
+            ) from error
         except URLError as error:
             raise RuntimeError(f"API server is not reachable: {self.base_url}") from error
 
