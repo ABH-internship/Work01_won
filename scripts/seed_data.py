@@ -6,10 +6,12 @@ from datetime import date, datetime, time, timedelta
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+from zoneinfo import ZoneInfo
 
 
 DEFAULT_BASE_URL = "http://127.0.0.1:8000"
 DEFAULT_TIMEOUT_SECONDS = 60
+KST = ZoneInfo("Asia/Seoul")
 
 
 class ApiClient:
@@ -57,6 +59,8 @@ def as_date(value: date) -> str:
 
 
 def as_datetime(value: datetime) -> str:
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=KST)
     return value.isoformat()
 
 

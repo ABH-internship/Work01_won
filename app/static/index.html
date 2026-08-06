@@ -706,9 +706,7 @@ footer{border-top:1px solid var(--line);color:var(--dim);font-size:11.5px;paddin
         return {unitNo:unitNo, readSeconds:Number(response.data && response.data.read_seconds || 0)};
       });
     }
-    return request('DN-2607-014').catch(function(){
-      return request('DN-2608-001');
-    });
+    return request('DN-2607-014');
   }
   btn.addEventListener('click',function(){
     reset();btn.disabled=true;msg.textContent='촬영 → 온디바이스 추론 중…';
@@ -727,7 +725,7 @@ footer{border-top:1px solid var(--line);color:var(--dim);font-size:11.5px;paddin
           var seconds=result.readSeconds ? result.readSeconds.toFixed(1) : '0.0';
           msg.textContent='판독 완료 ('+seconds+'초) — 결과가 호기 '+result.unitNo+' 품질 이력에 자동 저장되었습니다.';
           loadAiInspectionSummary();
-          loadTrace(result.unitNo);
+          loadTrace(document.getElementById('trace-unit-select').value);
         }).catch(function(error){
           console.warn(error);
           msg.textContent='판독 완료 — 결과 저장은 실패했습니다. API 상태를 확인해 주세요.';

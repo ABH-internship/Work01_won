@@ -1,6 +1,9 @@
 from datetime import date, datetime
+from zoneinfo import ZoneInfo
 
 from app.core.config import settings
+
+KST = ZoneInfo("Asia/Seoul")
 
 
 def default_base_date() -> date:
@@ -8,4 +11,5 @@ def default_base_date() -> date:
 
 
 def default_base_datetime() -> datetime:
-    return datetime.combine(settings.base_date, datetime.now().time().replace(microsecond=0))
+    now = datetime.now(KST)
+    return datetime.combine(settings.base_date, now.time().replace(microsecond=0), tzinfo=KST)
